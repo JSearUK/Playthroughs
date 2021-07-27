@@ -34,7 +34,6 @@
 # NOTE: The last two bugs may have been addressed by 7.4.7
 
 
-
 # [ INITIALISATION ]
 # >>> REQUIRED <<<
 # - NOTE: These can have their values altered, but must remain in existence
@@ -48,6 +47,7 @@ default viewingpt = []
 default userinput = ""
 default targetaction = ""
 default slotdetails = []
+
 # When exiting the game menu, or after loading, clear the variables that store the details of the playthrough being viewed. Do this by re-assigning a custom transition to those events
 # - NOTE: The specified duration needs to be greater than zero for the function to be called. Any transition where a function can be specified may be used
 # - NOTE: These lines re-initialise defines. This is not best practice, but it does mean that we can keep all of the changes of this mod to one file, and avoid altering further screens
@@ -55,6 +55,7 @@ default slotdetails = []
 init 1:
     define config.after_load_transition = Dissolve(1, time_warp=ResetPtVars)
     define config.exit_transition = Dissolve(1, time_warp=ResetPtVars)
+
 # >>> OPTIONAL <<<
 # - NOTE: The four 'enable_' defines below will still perform their default behaviour if set to 'False' - but the player will either not see their effect, or not be able to alter it
 define enable_versioning = True
@@ -73,7 +74,6 @@ define config.has_autosave = True
 define config.has_quicksave = True
 
 
-
 # [ CLASSES ]
 init python:
     # - (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
@@ -82,9 +82,7 @@ init python:
         # - WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
             # NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
                 # [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
-        def __init__(self, name=None):
-            if name == None:
-                raise Exception("Invalid argument - object '{self}' of class 'Playthrough': __init__([required] name=string)")
+        def __init__(self, name):
             self.name = name
             self.slots = self.GetSlots()
             self.lockcount = [slot[5] for slot in self.slots].count("LOCKED")
