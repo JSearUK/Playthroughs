@@ -38,13 +38,10 @@
 # [ INITIALISATION ]
 # >>> REQUIRED <<<
 # - NOTE: These can have their values altered, but must remain in existence
-init -1 python:
-    if persistent.playthroughslist == None:
-        persistent.playthroughslist = []
-    if persistent.savesystem == None:
-        persistent.savesystem = "original"
-    if persistent.sortby == None:
-        persistent.sortby = "lastmodified"
+default persistent.playthroughslist = []
+default persistent.savesystem = "original"
+default persistent.sortby = "lastmodified"
+
 default lastpage = None
 default viewingptname = ""
 default viewingpt = []
