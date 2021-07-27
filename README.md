@@ -3,6 +3,8 @@ The aim is to create the system in such a way that it can be safely dropped into
 
 The current state of the project is: Working - not yet optimised for Best Practice, and probably buggy
 
+---
+
 License: This code is free to use.
 
 However, you are warned that - in it's current state - it may not behave itself
