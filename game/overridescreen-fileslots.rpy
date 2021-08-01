@@ -4,6 +4,7 @@
 # >>> - The secondary purpose is to explain less familiar concepts and techniques to a third-party (e.g. regular expressions, lambdas, hijacking a transition to run a function, etc.)
 # >>> - WARNING: I have almost no training for coding, and hadn't written any python/Ren'Py code until four months ago. If I've been dumb anywhere, I apologize :D
 # >>> - WARNING: Some of the commentary is purely notes to myself or a specific third party. If I offend anyone with anything I've inadvertently left in here, I apologize :(
+# >>> - WARNING: I know nothing about coding for MacOs, linux, Android etc. Thus third-party expertise will likely be required to ensure compatibility
 
 # [ DEVLOG ]
 # Since I do not know how to edit the content/JSON of a file once it has saved, or easily regain control after a load, I'm going to store data in the filename and edit it using renaming
@@ -11,6 +12,7 @@
 # WARNING: Any functionality relating to Quick- or Auto-saves assumes the English version of these names. I do not know how to handle translation, or even if translation is needed
 #   - [EDIT:] Original Ren'Py code appears to translate the button labels, but uses hardcoded page names "auto" and "quick". So I think we're safe on this front
 # TODO: Figure out why "James and the Giant Peach by R Dahl" produces an unnecessary scrollbar of non-standard size. Must be a side effect of layout and sizing?
+#   - [EDIT:] This may not occur once Ren'Py has been upgraded to 7.4.8
 # TODO: Incorporate a way for future Devs to access and display any information saved with the file as JSON. Investigate the saving of JSON data to saves in the first place
 #   - [EDIT:] 'enable_JSON', icon/timestamp button, open screen to see data, close and resume
 # TODO: The Ren'Py save system should still be updated to implement naming/locking, if at all possible
@@ -19,6 +21,9 @@
 # TODO: Attempt to compact as much of the properties as possible into styles
 # TODO: Final pass: expand the code for clarity and see whether any more experienced coders are interested in wrestling it into a state of best practice
 # WARNING: Simply dropping the graphics files, plus this file and its .rpyc, into another project throws an exception. Building it in works fine.
+#   - [EDIT:] This seems to be okay for games higher than 7.3.5
+#   - [EDIT:] Games that use a published template to skin the entire UI (e.g. Pandora's Box) ignore these files, even if I add 'init offset = 99999' just before the screen
+        # TODO: Investigate further
 
 # [ TESTING ]
 # Basic functionality: File save, File overwrite, File rename, File load, File delete, File lock/unlock, Playthrough create, Playthrough rename, Playthrough delete
@@ -27,11 +32,12 @@
 # Environment: Compensate for any unavoidable bugs; report said bugs to PyTom with as much detail as possible, and ideally a short script reproducing the bug
 
 # [ BUGREPORTS ]
-# BUG: 'renpy.rename_save()' throws an exception if the filenames are identical when casefolded.
-# BUG: Wheel-/Edge-scrolling viewports incorrectly scroll using the theoretical ymaximum area, as opposed to presented bounds. Simultaneous scrolling of multiple 'overlapping' viewports can occur.
-# BUG: Setting a viewport to have a ysize/ymaximum with a float produces a container-sized (possibly infinite) viewport
+# BUG: 'renpy.rename_save()' throws an exception if the filenames are identical when casefolded
+#   - [EDIT:] This is specifically solved in 7.4.8
+# BUG: Wheel-/Edge-scrolling viewports incorrectly scroll using the theoretical ymaximum area, as opposed to presented bounds. Simultaneous scrolling of multiple 'overlapping' viewports can occur
+#   - [EDIT:] This is specifically solved in 7.4.8
 # BUG: Transforming images on hover doesn't stop/reset if control is transferred to something modal. What's more, further hovering also fails to interrupt/reset the transform
-# NOTE: The last two bugs may have been addressed by 7.4.7
+    # TODO: Not been able to reproduce this. Have another stab
 
 
 
@@ -168,6 +174,7 @@ init python:
 init python:
     def ResetPtVars(timeline=1.0):
         # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
+        # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it
         global viewingptname, viewingpt
         userinput, targetaction, viewingptname, viewingpt, slotdetails = "", "", "", [], []
         return 1.0
@@ -186,9 +193,10 @@ init python:
         # This accesses 'slotdetails' as a list of slot details, then checks that the original file exists; if so, it builds a new filename, renames it, then updates the data in 'viewingpt'
         # - [EDIT:] No need to update the data in 'viewingpt', nor to reload it. Apparently, even this data is adjusted through the magic of Ren'Py's python abstraction /shrug Cheers, PyTom!
         # WARNING: Bug hunting: sometimes 'renpy.rename_save()' throws an exception claiming that the file does not exist     - [EDIT:] Bug found
-        # BUG: 'renpy.rename_save()' will throw an exception if the filenames are identical when casefolded
+        # BUG: 'renpy.rename_save()' will throw an exception if the filenames are identical when casefolded     - [EDIT:] Bug worked around
         # NOTE: Renaming the slot/playthrough will need to check for case validity  - [EDIT:] Done
-        # TODO: Clean this up once working acceptably
+        # NOTE: 7.4.8 will have fixed this bug
+        # TODO: Revisit and remove newly-superfluous workaround once Ren'Py gets the update. Clean this all up once working acceptably
         global slotdetails, viewingptname
         if renpy.can_load(slotdetails[0]) == False:
             raise Exception("Error: File \"{}\" does not exist".format(slotdetails[0]))
@@ -281,6 +289,25 @@ style fileslots_viewport is fileslots:
 style fileslots_vscrollbar:
     unscrollable "hide"
 
+# [ TRANSFORMS ]
+# WARNING: The HoverSpin transform for the icons has not worked reliably in the past
+# - BUG: The following buttons do not quit the transform, nor reset on hover/unhover IF the screen they show requires user input but gets closed without change:
+#        - New Playthrough : Works on hover, unhover. Continues while Show(screen, **kwargs**) is shown. Properly stops if name is entered. Does not stop/reset/respond further if cancel/esc/""
+#        - Rename Slot : Same as above
+#        - (presumably) Rename Playthrough : Didn't test as rotating the icon in place proved tricky due to alignment within the larger button
+#        - NOTE: If the user right-clicks to exit the menu while the icon is bugged, re-entering the menu finds the icon locked up entirely - and in one case, moved out of position
+#        - NOTE: If the user clicks the icon in its bugged or locked state, and enters a valid choice with confirm, proper behaviour and position is restored
+#        - NOTE: The transform behaved properly when returning from the Confirm(text, yes_action, no_action) screen, even if cancelled. Therefore, my input screen needs something that Tom's has
+#        - TODO: Test whether a forced screen update will help?
+#          - [EDIT:] renpy.restart_interaction makes no difference, whether before or after AwaitUserInput()
+transform HoverSpin:
+    rotate_pad True
+    on hover:
+        linear 1.0 rotate 360
+        rotate 0
+        repeat
+    on idle:
+        rotate 0
 
 
 # [ SCREENS ]
@@ -294,7 +321,10 @@ screen file_slots(title):
                 # Added a button to switch to the Playthroughs system
                 imagebutton:
                     idle "gui/playthroughview.png"
-                    tooltip "Switch to the Playthrough system" hover_background Solid(gui.text_color) padding (4, 4)
+                    tooltip "Switch to the Playthrough system"
+                    # NOTE: If the HoverSpin transform is not reliable, comment it out and uncomment the line below it
+                    at HoverSpin
+#                    hover_background Solid(gui.text_color) padding (4, 4)
                     action SetVariable("persistent.savesystem", "playthroughs")
                 order_reverse True
                 # The page name
@@ -335,11 +365,16 @@ screen file_slots(title):
                             tooltip "View Quicksaves"
                             action FilePage("quick")
                     # Make sure we show the correct and current page range (even if visiting auto/quick saves)
+                    # TODO: See if we can't make the arrow buttons respect 'currentpage'; atm they will reset the whole range if clicked while viewing auto/quick
+                    # TODO: Use the sizegroup property on the page buttons; atm repeatedly clicking the arrows will slowly expand/contract the hbox width, shuffling the arrow out from under the mouse
                     python:
                         global lastpage
                         currentpage = FileCurrentPage()
                         # Respect the last page viewed in the previous game session by not initialising 'lastpage' until we have a valid 'currentpage'
-                        # WARNING: THIS IS THE LINE THAT THROWS AN EXCEPTION WHEN THE .RPY AND .RPYC FILES ARE DROPPED INTO A DISTRIBUTED PROJECT
+                        # WARNING: THIS IS THE LINE THAT THROWS AN EXCEPTION WHEN THE .RPY AND .RPYC FILES ARE DROPPED INTO CERTAIN DISTRIBUTED PROJECTS! (7.3.5 or below?) IT SAYS:
+                        #   File "game/overridescreen-fileslots.rpy", line 363, in <module>
+                        #       if lastpage == None: lastpage = int(currentpage) if currentpage.isdecimal() else 1
+                        # AttributeError: 'str' object has no attribute 'isdecimal'
                         if lastpage == None: lastpage = int(currentpage) if currentpage.isdecimal() else 1
                         # Preserve the last numeric page viewed
                         currentpage = int(currentpage) if currentpage.isdecimal() else lastpage
@@ -369,17 +404,18 @@ screen file_slots(title):
             $ help = GetTooltip()
             if help:
                 text help style "fileslots_input" italic True size gui.interface_text_size line_leading -(gui.interface_text_size + 5) xalign 1.0 xoffset -(gui.scrollbar_size + 10) layout "nobreak"
-            # NOTE: I'm not actually sure why there is a 'fixed' here, or even what it does, exactly
+            # NOTE: I'm not actually sure why there is a 'fixed' here, or even what it does, exactly?
             fixed:
                 style_prefix "fileslots"
                 hbox:
                     # 'ysize's in the following code are set to 'yvalue', if 'gui.text_size' is significantly smaller than the icon height (30px + 1px border). This lines up button edges
-                    # BUG: Not coercing to type int here results in a container-sized (possibly infinite) viewport
+                    # - NOTE: This may be unnecessary if the HoverSpin transform can be used instead of higlighting the background of the button that the icons are in
                     $ yvalue = 32 if gui.text_size < 22 else int(gui.text_size * 1.5)
                     # Playthroughs panel
                     vbox:
                         xsize 0.33
                         # This header and the panel below it are offset slightly to the left, to compensate for the width and spacing of the vertical scrollbar in the viewport below them
+                        # TODO: Use gui constants to calculate scrollbar spacing and offsets, instead of hardcoding pixels
                         text "Playthroughs" color gui.interface_text_color size gui.label_text_size xalign 0.5 xoffset -(gui.scrollbar_size / 2 + 3)
                         # Display top panel, which contains 1-4 buttons
                         hbox:
@@ -387,8 +423,10 @@ screen file_slots(title):
                             # Provide a button to switch to the original save system
                             textbutton "{image=gui/renpyview.png}":
                                 tooltip "Switch to the Ren'Py {} system".format(title)
-                                text_align (0.5, 0.5) align (0.5, 0.5) text_anchor (16, 16) xysize (yvalue, yvalue)     # 'text_anchor' should be the central pixel of the icon, rounded up
-                                hover_background Solid(gui.text_color)
+                                align (0.5, 0.5) text_align (0.5, 0.5)
+                                # NOTE: If the HoverSpin transform is not reliable, comment it out and uncomment the line below it
+                                at HoverSpin
+#                                hover_background Solid(gui.text_color) xysize (yvalue, yvalue) text_anchor (16, 16)    # 'text_anchor' should be the central *PIXEL* of the icon, rounded up
                                 action SetVariable("persistent.savesystem", "original")
                             if config.has_autosave:
                                 textbutton  _("{#auto_page}A"):
@@ -408,8 +446,11 @@ screen file_slots(title):
                             if title == "Save":
                                 textbutton "{image=gui/newplaythrough.png}":
                                     tooltip "Create a new Playthrough"
-                                    text_align (0.5, 0.5) align (0.5, 0.5) text_anchor (16, 16) xysize (yvalue, yvalue)
-                                    hover_background Solid(gui.text_color)
+                                    align (0.5, 0.5) text_align (0.5, 0.5)
+                                    # NOTE: If the HoverSpin transform is not reliable, comment it out and uncomment the line below it
+                                    # WARNING: This button exhibits the bug referenced at the definition of the HoverSpin transform, above
+                                    at HoverSpin
+#                                    hover_background Solid(gui.text_color) xysize (yvalue, yvalue) text_anchor (16, 16)    # 'text_anchor' should be the central *PIXEL* of the icon, rounded up
                                     action [SetVariable("targetaction", "newplaythroughname"),
                                             Show("querystring", query="{color=" + gui.interface_text_color + "}Please give this playthrough a unique name:{/color}", excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
                                             AwaitUserInput()]
@@ -424,6 +465,8 @@ screen file_slots(title):
                                     # NOTE: This way of presenting the button seems to dodge the viewport scroll-chaining issue that I've run across elsewhere. However, it does require some rather
                                     #       - kludgey simulation of normal textbutton behaviour, including hardcoding ratios down to the thousandths :/
                                     # TODO: I still think that this can be simplified/made more elegant, especially now that I know what the issues with viewports are
+                                    #   - [EDIT:] The viewport issues will have been addressed in 7.4.8
+                                    #   - [EDIT:] This section should be re-written as three buttons, which avoids hardcoding xsize/xmaximum and permits transformimg the icons with HoverSpin
                                     button:
                                         tooltip ("" if persistent.playthroughslist[i] == viewingptname else ("Show Slots in the \"" + persistent.playthroughslist[i] + "\" Playthrough"))
                                         xsize 1.0 ysize yvalue
@@ -438,6 +481,7 @@ screen file_slots(title):
                                                 align (0.5, 0.5) layout "nobreak"
                                                 hover_color gui.hover_color color (gui.hover_color if persistent.playthroughslist[i] == viewingptname else gui.text_color)
                                         # Delete button at the left, if we're dealing with the selected playthrough
+                                        # TODO: Make this a HoverSpin button once the list is rewritten after 7.4.8 is released
                                         if persistent.playthroughslist[i] == viewingptname:
                                             textbutton "{image=gui/delete.png}":
                                                 tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
@@ -445,7 +489,7 @@ screen file_slots(title):
                                                 hover_background Solid(gui.text_color)
                                                 action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
                                         # Rename button at the right, if we're dealing with the selected playthrough and 'enable_renaming' is True
-                                        # TODO: Make this button work
+                                        # TODO: Make this a HoverSpin button once the list is rewritten after 7.4.8 is released
                                         if persistent.playthroughslist[i] == viewingptname and enable_renaming:
                                             textbutton "{image=gui/rename.png}":
                                                 tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
@@ -559,7 +603,9 @@ screen file_slots(title):
                                                                 # BUG: Thus, multiple viewports can scroll simultaneously - even if within different containers - if presented vertically
                                                                 # NOTE: The solution used here is not ideal, but tolerable - and is challenged only by edge cases, anyway
                                                                 # TODO: Why the **** do we occasionally wind up with a weird scrollbar?!? o7
-                                                                # - To reproduce this, use a screen size of 1920x1080 and an 'editablename' of "James and the Giant Peach by R Dahl"...
+                                                                # - [EDIT:] To reproduce this: screen size of 1920x1080, text size 33 and an 'editablename' of "James and the Giant Peach by R Dahl"
+                                                                #           - or a text size of 66 and a Playthrough name of "Test", then hit the '+ New Save +' button
+                                                                # - [EDIT:] Adding the HoverSpin transform to the buttons has made all of the buttons gain the weird scrollbar...
                                                                 xfill False xmaximum 0.98 ymaximum (yvalue * 3) align (0.5, 0.5) mousewheel "horizontal-change" #edgescroll (100, 500)
                                                                 text "{}".format(slotname) color textcolor align (0.5, 0.5) text_align 0.5 layout "subtitle"
                                                             null height 10
@@ -571,20 +617,32 @@ screen file_slots(title):
                                                                 # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
                                                                 if enable_renaming and editablename and (enable_locking == False or (enable_locking and lockedstatus != "LOCKED")):
                                                                     textbutton "{image=gui/rename.png}":
-                                                                        tooltip "Rename {}".format(slotname) hover_background Solid(gui.text_color) text_size gui.slot_button_text_size #padding (4, 4)
+                                                                        tooltip "Rename {}".format(slotname)
+                                                                        text_size gui.slot_button_text_size
+                                                                        # NOTE: If the HoverSpin transform is not reliable, comment it out and uncomment the line below it
+                                                                        # WARNING: This button exhibits the bug referenced at the definition of the HoverSpin transform, above
+                                                                        at HoverSpin
+#                                                                        hover_background Solid(gui.text_color)
                                                                         action [SetVariable("targetaction", "changeslotname"),
                                                                                 SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, lockedstatus]),
                                                                                 Show("querystring", query="{color="+gui.interface_text_color+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
                                                                                 AwaitUserInput()]
                                                                 if enable_locking and lockedstatus:
                                                                     textbutton "{}".format("{image=gui/locked.png}" if lockedstatus == "LOCKED" else "{image=gui/unlocked.png}"):
-                                                                        tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname) hover_background Solid(gui.text_color) text_size gui.slot_button_text_size #padding (4, 4)
+                                                                        tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
+                                                                        # NOTE: If the HoverSpin transform is not reliable, comment it out and uncomment the line below it
+                                                                        at HoverSpin
+#                                                                        hover_background Solid(gui.text_color)
                                                                         action [SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED"]),
                                                                                 ReflectSlotChanges]
                                                                 if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                                                                     textbutton "{image=gui/delete.png}":
-                                                                        tooltip "Delete {}".format(slotname) hover_background Solid(gui.text_color) text_size gui.slot_button_text_size #padding (4, 4)
+                                                                        tooltip "Delete {}".format(slotname)
+                                                                        # NOTE: If the HoverSpin transform is not reliable, comment it out and uncomment the line below it
+                                                                        at HoverSpin
+#                                                                        hover_background Solid(gui.text_color)
                                                                         action FileDelete(filename, slot=True)
+                                            # Spacer between save slots. Can be commented out if desired
                                             null height 6
 
 
