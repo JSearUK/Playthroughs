@@ -37,8 +37,6 @@
 
 
 # [ BUGREPORTS ]
-# BUG: 'renpy.rename_save()' throws an exception if the filenames are identical when casefolded
-#   - [EDIT:] This is specifically solved in 7.4.8
 # BUG: Wheel-/Edge-scrolling viewports incorrectly scroll using the theoretical ymaximum area, as opposed to presented bounds. Simultaneous scrolling of multiple 'overlapping' viewports can occur
 #   - [EDIT:] This is specifically solved in 7.4.8
 # BUG: Transforming images on hover doesn't stop/reset if control is transferred to something modal. What's more, further hovering also fails to interrupt/reset the transform
@@ -84,7 +82,7 @@ define enable_locking = True
     # TODO: Check that this still works as intended with files that are locked when 'enable_locking' is False
 define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified" and "slotnumber" by default; "versionnumber" and "lockedstatus" may also be of use
-define enable_animation = True
+define enable_animation = False
     # This determines the hover behaviour of the icons in the UI: True will make the icons spin, False will highlight their background
     # WARNING: At the moment, this makes the icons in the save slots somehow cause the viewport to show an unscrollable scrollbar, despite there being lots of room and unscrollable "hide" being set
 define slotbackground = None #Solid("FFF1")
@@ -103,11 +101,11 @@ init python:
     # Reference: (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
     class Playthrough:
 
-        # Constructor - defines and initialises the new object properly
-        # - WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
+        def __init__(self, name=None):
+            # Constructor - defines and initialises the new object properly
+            # - WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
             # NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
                 # [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
-        def __init__(self, name=None):
             if name == None:
                 raise Exception("Invalid argument - object '{self}' of class 'Playthrough': __init__([required] name=string)")
             self.name = name
@@ -366,32 +364,24 @@ screen file_slots(title):
                 if help:
                     text help style "fileslots_input" italic True size gui.interface_text_size xalign 0.5 yalign 0.9
                 # Page selection
+                # TODO: Come up with a sensible solution to the page numbers getting too big. Test if current layout breaks if text too big? Is this what 'fixed:' solves?
+                # - [EDIT:] Suggest simply dividing the screen into fractions (17: A <<< << < 1 2 3 4 5 6 7 8 9 > >> >>> Q )
                 hbox:
-                    # WARNING: I've messed this section up big-time; it's on the list of things TODO: Implement additional arrows for +/- 10, +/- 100 and rewrite this section
-                    # Using the size_group property on the page buttons; atm repeatedly clicking the arrows will slowly expand/contract the hbox width, shuffling the arrow out from under the mouse
-                    # TODO: Come up with a sensible solution to the page numbers getting too big. Test if current layout breaks if text too big? Is this what 'fixed:' solves?
-                    # - [EDIT:] Suggest simply dividing the screen into fractions (17: A <<< << < 1 2 3 4 5 6 7 8 9 > >> >>> Q )
-                    style_prefix "page"
-                    xalign 0.5 yalign 1.0 spacing gui.page_spacing
+                    style_prefix "page" xalign 0.5 yalign 1.0 spacing gui.page_spacing
                     textbutton _("<"):
-                        size_group "pages"
-                        text_align (0.5, 0.5)
                         tooltip "View previous page"
                         action FilePagePrevious()
                     if config.has_autosave:
                         textbutton _("{#auto_page}A"):
-                            size_group "pages"
-                            text_align (0.5, 0.5)
                             tooltip "View Autosaves"
                             action FilePage("auto")
                     if config.has_quicksave:
                         textbutton _("{#quick_page}Q"):
-                            size_group "pages"
-                            text_align (0.5, 0.5)
                             tooltip "View Quicksaves"
                             action FilePage("quick")
                     # Make sure we show the correct and current page range (even if visiting auto/quick saves)
                     # TODO: See if we can't make the arrow buttons respect 'currentpage'; atm they will reset the whole range if clicked while viewing auto/quick
+                    # TODO: Use the sizegroup property on the page buttons; atm repeatedly clicking the arrows will slowly expand/contract the hbox width, shuffling the arrows out from under the mouse
                     python:
                         global lastpage
                         currentpage = FileCurrentPage()
@@ -409,13 +399,9 @@ screen file_slots(title):
                         minpage = 1 if currentpage < 10 else  currentpage - 8
                     for page in range(minpage, maxpage):
                         textbutton "[page]":
-                            size_group "pages"
-                            text_align (0.5, 0.5)
                             tooltip "View Page {}".format(page)
                             action FilePage(page)
                     textbutton _(">"):
-                        size_group "pages"
-                        text_align (0.5, 0.5)
                         tooltip "View next page"
                         action FilePageNext()
     else:
@@ -514,7 +500,7 @@ screen file_slots(title):
                                             xsize 1.0 ysize yvalue
                                             selected_background Solid(gui.text_color)
                                             viewport:
-                                                xfill False align (0.5, 0.5) mousewheel "horizontal-change" #edgescroll (50, 500)   # - [EDIT:] Use the edgescroll setting once we're in 7.4.8
+                                                xfill False align (0.5, 0.5) edgescroll (50, 500) #mousewheel "horizontal-change"       - [EDIT:] Alternative scrolling option
                                                 text " {} ".format(persistent.playthroughslist[i]):
                                                     layout "nobreak"
                                                     hover_color gui.hover_color color (gui.hover_color if persistent.playthroughslist[i] == viewingptname else gui.text_color)
@@ -591,8 +577,9 @@ screen file_slots(title):
                                             # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code...
                                             if title == "Save":
                                                 textbutton "+ New Save +":
-                                                    tooltip "Create a new save: {}".format(slotname) xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5) hover_foreground Frame("gui/emptyframe.png")
-                                                    background slotbackground
+                                                    tooltip "Create a new save: {}".format(slotname)
+                                                    xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5)
+                                                    background slotbackground hover_foreground Frame("gui/emptyframe.png")
                                                     action [SetVariable("targetaction", "newslotnumber"),
                                                             If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+gui.interface_text_color+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots")),
                                                             AwaitUserInput()]
@@ -602,15 +589,16 @@ screen file_slots(title):
                                             if enable_versioning:
                                                 $ textcolor = gui.insensitive_color
                                                 textbutton "{} - Version {}".format(editablename, versionnumber):
-                                                    xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5) sensitive False
+                                                    sensitive False
+                                                    xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5)
                                                     background slotbackground
                                                     action NullAction()
                                         # Everything else should all be pre-existing disk files that need to be shown
                                         else:
                                             button:
-                                                # TODO: Test using 'side:' to structure this button more robustly
-                                                tooltip "{} {}".format("Load" if title == "Load" else "Overwrite", slotname) xsize 1.0 ysize config.thumbnail_height hover_foreground Frame("gui/emptyframe.png")
-                                                background slotbackground
+                                                tooltip "{} {}".format("Load" if title == "Load" else "Overwrite", slotname)
+                                                xsize 1.0 ysize config.thumbnail_height
+                                                background slotbackground hover_foreground Frame("gui/emptyframe.png")
                                                 action [MakePtLast,
                                                         If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{:05}-{}-{}-Unlocked".format(viewingptname, slotnumber, config.version, editablename) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
                                                 if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
@@ -623,7 +611,8 @@ screen file_slots(title):
                                                 hbox:
                                                     # Thumbnail on the left. Setting it as a background to a frame permits regular content to appear overlaid, if needed
                                                     frame:
-                                                        xsize config.thumbnail_width ysize config.thumbnail_height background FileScreenshot(filename, slot=True)
+                                                        xsize config.thumbnail_width ysize config.thumbnail_height
+                                                        background FileScreenshot(filename, slot=True)
                                                         # Grey out the thumbnail if versioning is enabled, the version number is known, and it doesn't match the current version
                                                         if enable_versioning and versionnumber != "" and versionnumber != config.version:
                                                             add Solid("#000000CF")
@@ -634,20 +623,20 @@ screen file_slots(title):
                                                                 text "v{}".format(versionnumber) xalign 0.5 size gui.slot_button_text_size style "fileslots_input"
                                                     null width gui.scrollbar_size
                                                     viewport:
-                                                        scrollbars "vertical" mousewheel "change" align (0.5, 0.5)
+                                                        scrollbars "vertical" mousewheel "change"
+                                                        align (0.5, 0.5) xmaximum 0.98 ymaximum 0.99
                                                         vbox:
                                                             align (0.5, 0.5) xfill True #box_wrap True
                                                             viewport:
                                                                 # Putting the slotname in its own box helps us to handle 'editablename's that exceed the space they're given without breaking the layout
-                                                                # BUG: Viewports wheel-/edge-scroll according to potential ymaximum bounds, as opposed to presented bounds. Overlap can occur
-                                                                #   - [EDIT:] Bug worked around (wheelscrolling), reported to Tom, fixed as of 7.4.8
                                                                 # TODO: Why the **** do we occasionally wind up with a weird scrollbar?!? o7
                                                                 # - [EDIT:] To reproduce this: screen size of 1920x1080, text size 33 and an 'editablename' of "James and the Giant Peach by R Dahl"
                                                                 #           - or a text size of 66 and a Playthrough name of "Test", then hit the '+ New Save +' button
                                                                 # - [EDIT:] Adding the HoverSpin transform to the icons has also made all of the buttons gain the weird scrollbar...
                                                                 #    - [EDIT:] Restructuring the button using 'side:' may help. That 'ymaximum' probably doesn't help, either
-                                                                # - [EDIT:] Er. I haven't given it scrollbars. Therefore unscrollable isn't happening. Investigate this!
-                                                                xfill False xmaximum 0.98 ymaximum (yvalue * 3) align (0.5, 0.5) mousewheel "horizontal-change" #edgescroll (100, 500)
+                                                                #       - [EDIT:] There is an attempt at this commented out, below...
+                                                                edgescroll (100, 500) #mousewheel "horizontal-change"
+                                                                xfill False align (0.5, 0.5)
                                                                 text "{}".format(slotname) color textcolor align (0.5, 0.5) text_align 0.5 layout "subtitle"
                                                             null height 10
                                                             text "{}".format(FileTime(filename, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True)) xalign 0.5 size gui.slot_button_text_size color textcolor
@@ -687,6 +676,74 @@ screen file_slots(title):
                                                                             if enable_animation:
                                                                                 at HoverSpin
                                                                         action FileDelete(filename, slot=True)
+#
+#                                                # TODO: Test using 'side:' to structure this button more robustly
+#                                                side "l c":
+#                                                    # Thumbnail on the left. Setting it as a background to a frame permits regular content to appear overlaid, if needed
+#                                                    frame:
+#                                                        xsize config.thumbnail_width ysize config.thumbnail_height
+#                                                        background FileScreenshot(filename, slot=True)
+#                                                        # Grey out the thumbnail if versioning is enabled, the version number is known, and it doesn't match the current version
+#                                                        if enable_versioning and versionnumber != "" and versionnumber != config.version:
+#                                                            add Solid("#000000CF")
+#                                                            vbox:
+#                                                                at truecenter
+#                                                                text "- Older Save -" xalign 0.5 size gui.slot_button_text_size style "fileslots_input"
+#                                                                null height gui.slot_button_text_size
+#                                                                text "v{}".format(versionnumber) xalign 0.5 size gui.slot_button_text_size style "fileslots_input"
+#                                                    # Slot data and options
+#                                                    viewport:
+#                                                        xfill False yfill True xsize 0.98 edgescroll (100, 500) at truecenter
+#                                                        side "b c":
+#                                                            # Timestamp and Icon buttons
+#                                                            vbox:
+#                                                                at truecenter
+#                                                                null height 10
+#                                                                text "{}".format(FileTime(filename, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True)):
+#                                                                    xalign 0.5 size gui.slot_button_text_size color textcolor layout "nobreak"
+#                                                                null height 10
+#                                                                hbox:
+#                                                                    xalign 0.5
+#                                                                    # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
+#                                                                    if enable_renaming and editablename and (enable_locking == False or (enable_locking and lockedstatus != "LOCKED")):
+#                                                                        button:
+#                                                                            tooltip "Rename {}".format(slotname)
+#                                                                            hover_background (None if enable_animation else Solid(gui.text_color))
+#                                                                            text "{image=gui/rename.png}":
+#                                                                                align (0.5, 0.5)
+#                                                                                if enable_animation:
+#                                                                                    at HoverSpin
+#                                                                            action [SetVariable("targetaction", "changeslotname"),
+#                                                                                    SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, lockedstatus]),
+#                                                                                    Show("querystring", query="{color="+gui.interface_text_color+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
+#                                                                                    AwaitUserInput()]
+#                                                                    if enable_locking and lockedstatus:
+#                                                                        button:
+#                                                                            tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
+#                                                                            hover_background (None if enable_animation else Solid(gui.text_color))
+#                                                                            text "{}".format("{image=gui/locked.png}" if lockedstatus == "LOCKED" else "{image=gui/unlocked.png}"):
+#                                                                                align (0.5, 0.5)
+#                                                                                if enable_animation:
+#                                                                                    at HoverSpin
+#                                                                            action [SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED"]),
+#                                                                                    ReflectSlotChanges]
+#                                                                    if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
+#                                                                        button:
+#                                                                            tooltip "Delete {}".format(slotname)
+#                                                                            hover_background (None if enable_animation else Solid(gui.text_color))
+#                                                                            text "{image=gui/delete.png}":
+#                                                                                align (0.5, 0.5)
+#                                                                                if enable_animation:
+#                                                                                    at HoverSpin
+#                                                                            action FileDelete(filename, slot=True)
+#                                                            # The name of the slot. Since this could be lengthy and/or a large font, we need to make it fit gracefully
+#                                                            viewport:
+#                                                                xfill False at truecenter
+#                                                                # Putting the slotname in its own box helps us to handle 'editablename's that exceed the space they're given without breaking the layout
+#                                                                edgescroll (100, 500)
+#                                                                #mousewheel "horizontal-change"
+#                                                                text "{}".format(slotname) color textcolor align (0.5, 0.5) layout "subtitle" text_align 0.5
+#
                                         # Spacer between save slots. Can be commented out if desired
                                         null height round(gui.scrollbar_size / 3)
 
@@ -763,8 +820,6 @@ screen querystring(query="Hmm?", preload="", excludes="[{", invalid=[], maxcharl
             # Conditional invalidation based on purpose of input can go here:
             # - If 'targetaction' is "newplaythroughname" or "changeplaythroughname", we need to prevent it from being an integer (because these are Ren'Py save system Page names)
             if (targetaction == "newplaythroughname" or targetaction == "changeplaythroughname") and currentstring.isdecimal(): isvalid = False
-            # - If 'targetaction' is "changeslotname" or "changeplaythroughname", we need to prevent case-insensitive equivalence because 'renpy.rename_save()' will throw an exception
-            if (targetaction == "changeslotname" or targetaction == "changeplaythroughname") and currentstring.lower() == preload.lower(): isvalid = False
         use ccframe(callingscreen="querystring", variable=variable, newvalue=currentstring, isvalid=isvalid)
 
 # { SUPPORT SCREEN } - Adds a box to the middle of a container, offering a text field to the player and storing the result in a specified variable. Designed for numbers
