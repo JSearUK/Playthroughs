@@ -74,21 +74,41 @@ define config.has_autosave = True
 define config.has_quicksave = True
 
 
-# [ CLASSES ]
 init python:
+    # [ CLASSES ]
     # - (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
     class Playthrough:
         # Constructor - defines and initialises the new object properly
         # - WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
             # NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
                 # [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
+        """
+        The Playthrough object that stores all the saves in 1 playthrough
+        
+        Args:
+            name (str): The name of the playthrough
+
+        Attributes:
+            slots (list): The list of save slots in the playthrough
+            lock_count (list): ...
+            higher_version_count (list): ...
+        """
+        
         def __init__(self, name):
             self.name = name
-            self.slots = self.GetSlots()
-            self.lockcount = [slot[5] for slot in self.slots].count("LOCKED")
-            self.higherversioncount = [True if slot[3].lower() > config.version.lower() else False for slot in self.slots].count(True)
-            self.SortSlots()
-        def GetSlots(self):
+
+            self.slots = self.get_slots()
+            self.lock_count = [slot[5] for slot in self.slots].count("LOCKED")
+            self.higher_version_count = [True if slot[3].lower() > config.version.lower() else False for slot in self.slots].count(True)
+            self.sort_slots()
+
+        def get_slots(self):
+            """
+            DESCIPTION
+
+            Returns:
+                slots (list): The list of save slots in the playthrough
+            """
             # This needs to return a list of lists, where each sublist contains all the data about the slot except the thumbnail. This is so that we can use both indices and list comprehension
             # Populate the slotslist by using a 'regex'. 'Regex' is short for "regular expression". It defines rules for extracting wanted data out of a pile of it
             # - This particular regex says that we want matches that: "^"(begins with) + (self.name(the name field of this object) + "-"(to avoid unwanted partial matches))
@@ -110,7 +130,18 @@ init python:
                     slots.append([file, renpy.slot_mtime(file)] + subdata[1:])
             # Pass the data back to the calling expression
             return slots
-        def SortSlots(self, reverse=True):
+
+        def sort_slots(self, reverse=True):
+            """
+            DESCRIPTION
+
+            Args:
+                reverse (bool, optional): DESCRIPTION. Defaults to None
+
+            Raises:
+                Exception: If `lower` isn't a decimal or `upper` isn't a decimal
+                Exception: If `slotnumber` isn't a decimal
+            """
             # Strip any existing slots that have a filename that is "+ New Save +", because we cannot assume that we're dealing with a slotslist that has not already been sorted
             # - NOTE: This doesn't appear to be necessary. I don't know why? - [EDIT:] There is other code that shouldn't work, and does. I think it's just the way Ren'Py handles stuff internally
             # Sort the slots in (reverse) order according to the value of 'persistent.sortby':
@@ -133,7 +164,7 @@ init python:
                     lower, upper = self.slots[slot][i], self.slots[slot - 1][i]
                     # Dodge 'int()' crashing over a non-decimal string (including an empty one)
                     if not lower.isdecimal() or not upper.isdecimal():
-                        raise Exception("'lower' or 'upper' was not decimal ({} or {}) while inserting intermediate \"+ New Save +\" slot(s) in {}.SortSlots()".format(lower, upper, self.name))
+                        raise Exception("'lower' or 'upper' was not decimal ({} or {}) while inserting intermediate \"+ New Save +\" slot(s) in {}.sort_slots()".format(lower, upper, self.name))
                     lower, upper = int(lower), int(upper)
                     if upper-lower == 2:
                         # There is a single-slot gap here
@@ -151,12 +182,11 @@ init python:
                 # Dodge 'int()' crashing over a non-decimal or empty string...
                 # TODO: Since this type of check gets performed a lot, consider writing a multipurpose safety-check function for type conversions
                 if not slotnumber.isdecimal():
-                    raise Exception("'slotnumber' was not decimal ({}) while inserting topmost \"+ New Save +\" slot in {}.SortSlots()".format(slotnumber, self.name))
+                    raise Exception("'slotnumber' was not decimal ({}) while inserting topmost \"+ New Save +\" slot in {}.sort_slots()".format(slotnumber, self.name))
                 slotnumber = int(slotnumber) + 1
                 # Dodge slot numbers requiring more than five characters...
                 if slotnumber < 10000:
                     self.slots.insert(0, ["+ New Save +", "", "{:05}".format(slotnumber), "", "", ""])
-
 
 
 # [ FUNCTIONS ]
@@ -202,7 +232,7 @@ init python:
         # This deletes all of the files in 'viewingpt', then removes 'viewingptname' from 'persistent.playthroughslist', then calls 'ResetPtVars()' to clear the current viewing details
         global viewingptname, viewingpt
         # Reload the playthrough, to be sure of having current and unmodified information
-        viewingpt.slots = viewingpt.GetSlots()
+        viewingpt.slots = viewingpt.get_slots()
         for slot in viewingpt.slots:
             if renpy.can_load(slot[0]) == False:
                 raise Exception("Error: File \"{}\" does not exist".format(slot[0]))
@@ -228,7 +258,7 @@ init python:
                 viewingpt = Playthrough(name=viewingptname)
             elif targetaction == "changeplaythroughname":
                 # This updates 'viewingptname', then renames all of the files in 'viewingpt' via 'ReflectSlotChanges()', then updates 'viewingptname' in 'persistent.playthroughslist'
-                viewingpt.slots = viewingpt.GetSlots()
+                viewingpt.slots = viewingpt.get_slots()
                 oldptname = viewingptname
                 viewingptname = userinput
                 for slot in viewingpt.slots:
@@ -438,7 +468,7 @@ screen file_slots(title):
                                                 tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
                                                 align (0.0, 0.5) text_align (0.5, 0.5) text_anchor (16, 16) ysize yvalue
                                                 hover_background Solid(gui.text_color)
-                                                action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
+                                                action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nLocked Slots: " + str(viewingpt.lock_count) + "{/color}{/size}" if viewingpt.lock_count else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nSlots from a later version: " + str(viewingpt.higher_version_count) + "{/color}{/size}" if viewingpt.higher_version_count else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
                                         # Rename button at the right, if we're dealing with the selected playthrough and 'enable_renaming' is True
                                         # TODO: Make this button work
                                         if persistent.playthroughslist[i] == viewingptname and enable_renaming:
@@ -474,13 +504,13 @@ screen file_slots(title):
                                     text_align (0.5, 0.5) align (0.5, 0.5) ysize yvalue
                                     selected_background gui.text_color text_selected_color gui.hover_color
                                     action [SetVariable("persistent.sortby", "lastmodified"),
-                                            viewingpt.SortSlots]
+                                            viewingpt.sort_slots]
                                 textbutton " Number ":
                                     tooltip "Sort slots by highest slot number first"
                                     text_align (0.5, 0.5) align (0.5, 0.5) ysize yvalue
                                     selected_background gui.text_color text_selected_color gui.hover_color
                                     action [SetVariable("persistent.sortby", "slotnumber"),
-                                            viewingpt.SortSlots]
+                                            viewingpt.sort_slots]
                             null height yvalue
                         null height gui.text_size / 8
                         # Vertically-scrolling viewport for the slotslist
