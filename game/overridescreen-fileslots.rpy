@@ -15,7 +15,7 @@
 # TODO: Figure out why "James and the Giant Peach by R Dahl" produces an unnecessary scrollbar of non-standard size. Must be a side effect of layout and sizing?
 #   - [EDIT:] This may not occur once Ren'Py has been upgraded to 7.4.8
 #   - [EDIT:] HoverSpin icons inside the save slot button data viewport generate this behaviour. Possible solution: 'side:' - if not, write a demo and send it to Tom
-# TODO: Re-write the mess I made of the Ren'py original save page page selection bar. Test to see if the original bar buggered up when the font got too big?
+# TODO: Re-write the mess I made of the Ren'py original save page page selection bar.       - [EDIT:] Further details in the relevant section
 # TODO: Incorporate a way for future Devs to access and display any information saved with the file as JSON. Investigate the saving of JSON data to saves in the first place
 #   - [EDIT:] 'enable_JSON', icon/timestamp button, open screen to see data, close and resume
 # TODO: The Ren'Py save system should still be updated to implement naming/locking, if at all possible
@@ -37,12 +37,7 @@
 
 
 # [ BUGREPORTS ]
-# BUG: Wheel-/Edge-scrolling viewports incorrectly scroll using the theoretical ymaximum area, as opposed to presented bounds. Simultaneous scrolling of multiple 'overlapping' viewports can occur
-#   - [EDIT:] This is specifically solved in 7.4.8
-# BUG: Transforming images on hover doesn't stop/reset if control is transferred to something modal. What's more, further hovering also fails to interrupt/reset the transform
-#   - [EDIT:] This was due to usage for buttons whilst not handling the selected_hover/_idle states of said buttons. This will be implicitly handled from 7.4.9
-# BUG: The viewport showing save details in each slot button sometimes shows an unscrollable scrollbar, despite there being lots of room and unscrollable "hide" being set
-#   - [EDIT:] This may be fixed already, via Tom's changes to viewports in 7.4.8
+# BUG: The viewport showing save details in each slot button sometimes shows an unscrollable scrollbar, despite there being lots of room
 #   - [EDIT:] Putting HoverSpin icons into the viewport guarantees this behavior. Certain results of 'layout "subtitle"' can also provoke this behaviour
 #   - [EDIT:] Moving the icons up a row, so that the timestamp is displayed below them, makes no difference
 
@@ -84,7 +79,7 @@ define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified" and "slotnumber" by default; "versionnumber" and "lockedstatus" may also be of use
 define enable_animation = False
     # This determines the hover behaviour of the icons in the UI: True will make the icons spin, False will highlight their background
-    # WARNING: At the moment, this makes the icons in the save slots somehow cause the viewport to show an unscrollable scrollbar, despite there being lots of room and unscrollable "hide" being set
+    # WARNING: At the moment, this makes the icons in the save slots somehow cause the viewport to show an unscrollable scrollbar, despite there being lots of room
 define slotbackground = None #Solid("FFF1")
     # This is what is shown behind each slot, and can be any Displayable or None. Either hard-code it, or use a binding defined at a lower init level
     # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
@@ -184,7 +179,7 @@ init python:
                     raise Exception("'slotnumber' was not decimal ({}) while inserting topmost \"+ New Save +\" slot in {}.SortSlots()".format(slotnumber, self.name))
                 slotnumber = int(slotnumber) + 1
                 # Dodge slot numbers requiring more than five characters...
-                    # TODO: This check will become obsolete once we've done away with the five-character-width requirement. Get rid of it, then
+                    # TODO: This check will become obsolete once we've done away with the five-character-width requirement. Get rid of it, once that is done
                 if slotnumber < 10000:
                     self.slots.insert(0, ["+ New Save +", "", "{:05}".format(slotnumber), "", "", ""])
 
@@ -211,20 +206,14 @@ init python:
     def ReflectSlotChanges():
         # This accesses 'slotdetails' as a list of slot details, then checks that the original file exists; if so, it builds a new filename, renames it, then updates the data in 'viewingpt'
         # - [EDIT:] No need to update the data in 'viewingpt', nor to reload it. Apparently, even this data is adjusted through the magic of Ren'Py's python abstraction /shrug Cheers, PyTom!
-        # BUG: 'renpy.rename_save()' will throw an exception if the filenames are identical when casefolded     - [EDIT:] Bug worked around, reported to Tom, fixed in upcoming 7.4.8
-            # TODO: Revisit and remove newly-superfluous workaround once Ren'Py gets updated to 7.4.8. Clean this all up once working acceptably
         global slotdetails, viewingptname
         if renpy.can_load(slotdetails[0]) == False:
             raise Exception("Error: File \"{}\" does not exist".format(slotdetails[0]))
         newfilename = viewingptname
         for subdata in slotdetails[1:]:
             if subdata: newfilename += "-" + subdata
-        if slotdetails[0] == newfilename:
-            print("In ReflectSlotChanges() - Skipping rename because names are identical:\n - Old: \"{}\"\n - New: \"{}\"".format(slotdetails[0], newfilename))
-        else:
-            print("In ReflectSlotChanges() - Attempting rename:\n - Old: \"{}\"\n - New: \"{}\"\n - Old still exists? {}".format(slotdetails[0], newfilename, renpy.can_load(slotdetails[0])))
+        if slotdetails[0] != newfilename:
             renpy.rename_save(slotdetails[0], newfilename)
-        print(" - {}".format("...success" if renpy.can_load(newfilename) else "...FAILURE"))
         slotdetails = []
 
     def DeletePlaythrough():
@@ -364,8 +353,12 @@ screen file_slots(title):
                 if help:
                     text help style "fileslots_input" italic True size gui.interface_text_size xalign 0.5 yalign 0.9
                 # Page selection
-                # TODO: Come up with a sensible solution to the page numbers getting too big. Test if current layout breaks if text too big? Is this what 'fixed:' solves?
-                # - [EDIT:] Suggest simply dividing the screen into fractions (17: A <<< << < 1 2 3 4 5 6 7 8 9 > >> >>> Q )
+                # TODO: Come up with a sensible solution to the page numbers getting too big. Test if current layout breaks if text too big? Is this what 'fixed:' solves?      - [EDIT:] Nope.
+                # - [EDIT:] If gui.interface_text_size gets to 70 (someone might do it...) and the page number reaches 206 on a 1920x1080 screen, the right arrow disappears
+                # - [EDIT:] Use the sizegroup property on the buttons? ATM repeatedly clicking the arrows will slowly expand/contract the hbox width, shuffling the arrows out from under the mouse
+                # - [EDIT:] Suggest simply dividing the screen into fractions (20: {space} A <<< << < 1 2 3 4 5 6 7 8 9 10 > >> >>> Q {space} )
+                # TODO: Ah! Use a 'side:' to keep the arrows and A/Q where they should be. The center area to be a viewport containing an hbox, which:
+                #    - has the current page centered, and five? ten? size_group'd page_buttons either side. Buttons < 1 have no text and are NullActioned()
                 hbox:
                     style_prefix "page" xalign 0.5 yalign 1.0 spacing gui.page_spacing
                     textbutton _("<"):
@@ -381,7 +374,6 @@ screen file_slots(title):
                             action FilePage("quick")
                     # Make sure we show the correct and current page range (even if visiting auto/quick saves)
                     # TODO: See if we can't make the arrow buttons respect 'currentpage'; atm they will reset the whole range if clicked while viewing auto/quick
-                    # TODO: Use the sizegroup property on the page buttons; atm repeatedly clicking the arrows will slowly expand/contract the hbox width, shuffling the arrows out from under the mouse
                     python:
                         global lastpage
                         currentpage = FileCurrentPage()
@@ -428,7 +420,6 @@ screen file_slots(title):
                     vbox:
                         xsize 0.33
                         # This header and the panel below it are offset slightly to the left, to compensate for the width and spacing of the vertical scrollbar in the viewport below them
-                        # TODO: Use gui constants to calculate scrollbar spacing and offsets, instead of hardcoding pixels
                         text "Playthroughs" color gui.interface_text_color size gui.label_text_size xalign 0.5 xoffset -round(gui.scrollbar_size * 1.33 / 2)
                         # Display top panel, which contains 1-4 buttons
                         hbox:
@@ -538,7 +529,7 @@ screen file_slots(title):
                         xsize 1.0
                         text "Slots" color gui.interface_text_color size gui.label_text_size
                         # Provide (or not) buttons that alter the key that the slotslist is sorted on
-                        # TODO: See if I can't tighten this up
+                        # TODO: See if I can't tighten this up. It might not need to have all those properties specified
                         hbox:
                             if enable_sorting and viewingptname and viewingptname != "auto" and viewingptname != "quick":
                                 textbutton " Recent ":
