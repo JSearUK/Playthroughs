@@ -1,25 +1,21 @@
 
 # [ INITIALISATION - BEST TO LEAVE ALONE ]
-init -1 python:
-    if persistent.playthroughslist == None:
-        persistent.playthroughslist = []
-    if persistent.savesystem == None:
-        persistent.savesystem = "original"
-    if persistent.sortby == None:
-        persistent.sortby = "lastmodified"
+default persistent.savesystem = "original"
+default persistent.sortby = "lastmodified"
+default persistent.playthroughslist = []
 default lastpage = None
 default viewingptname = ""
 default viewingpt = []
 default userinput = ""
 default targetaction = ""
 default slotdetails = []
+
 # When exiting the game menu, or after loading, clear the variables that store the details of the playthrough being viewed. Do this by re-assigning a custom transition to those events
 # - NOTE: The specified duration needs to be greater than zero for the function to be called. Any transition where a function can be specified may be used
 # - NOTE: These lines re-initialise defines. This is not best practice, but it does mean that we can keep all of the changes of this mod to one file, and avoid altering further screens
 # - NOTE: If this behaviour is not desired, simply comment out the three lines below
-init 1:
-    define config.after_load_transition = Dissolve(1, time_warp=ResetPtVars)
-    define config.exit_transition = Dissolve(1, time_warp=ResetPtVars)
+define config.after_load_transition = Dissolve(1, time_warp=ResetPtVars)
+define config.exit_transition = Dissolve(1, time_warp=ResetPtVars)
 
 # [ INITIALISATION - FREELY MODIFIABLE ]
 # NOTE: The five 'enable_' defines below will still perform their default behaviour if set to 'False' - but the player will either not see their effect, or not be able to alter it
@@ -52,8 +48,16 @@ define config.has_quicksave = True
 init python:
     # Reference: (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
     class Playthrough:
-        """
-        
+        """The Playthough class (summary line)
+
+        The playthrough class stores the name of the play through and a list of saves for that playthough (detailed line)
+
+        Attributes:
+            attribute1_EXAMPLE (data type): Description of attribute1
+            name (str): The name of the playthough
+            slots (:obj:`list` of :obj:`str`): The list of files for the game
+            lockcount (int): The count of the number of saves locked
+            higherversioncount (int): The count of the number of slots with a higher version than config.version
         """
 
         def __init__(self, name=None):
