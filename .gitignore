@@ -13,6 +13,7 @@ game/options.rpy
 game/screens.rpy
 game/script.rpy
 
+Radiant.py
 errors.txt
 gradle.properties.txt
 log.txt
@@ -28,5 +29,5 @@ screenshot*
 *.opus
 *.rpa
 *.rpyc
+*.sh
 *.zip
-
