@@ -43,12 +43,6 @@ define slotbackground = None #Solid("FFF1")
     # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
     # - NOTE: None is the default, removing the background, resulting in total transparency
 
-# [ INITIALISATION - CONVENIENCE ]
-define config.has_autosave = True
-define config.has_quicksave = True
-    # These override existing config settings. They are here purely for dev convenience, and can be commented out if they are interfering with existing code
-
-
 # [ CLASSES ]
 init python:
     # Reference: (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
