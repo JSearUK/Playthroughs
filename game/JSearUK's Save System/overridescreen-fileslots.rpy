@@ -55,29 +55,43 @@ init python:
         Attributes:
             attribute1_EXAMPLE (data type): Description of attribute1
             name (str): The name of the playthough
-            slots (:obj:`list` of :obj:`str`): The list of files for the game
+            slots (:obj:`list` of :obj:`list`): The list of files for the game
             lockcount (int): The count of the number of saves locked
             higherversioncount (int): The count of the number of slots with a higher version than config.version
+
         """
 
-        def __init__(self, name=None):
-            # Constructor - defines and initialises the new object properly
-            # - WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
-            # NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
-                # [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
-            if name == None:
-                raise Exception("Invalid argument - object '{self}' of class 'Playthrough': __init__([required] name=string)")
-            self.name = name
-            self.slots = self.GetSlots()
-            self.lockcount = [slot[5] for slot in self.slots].count("LOCKED")
-            self.higherversioncount = [True if slot[3].lower() > config.version.lower() else False for slot in self.slots].count(True)
-            self.SortSlots()
+        def __init__(self, name):
+            """Constructor - defines and initialises the new object properly
 
-        def GetSlots(self):
+            WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
+            NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
+            [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
+
+            Args:
+                name (str): The name of the playthough
+
+            """
+            self.name = name
+
+            self.slots = []
+            self.lock_count = [slot[5] for slot in self.slots].count("LOCKED") # NOT USED
+            self.higher_version_count = [slot[3].lower() > config.version.lower() for slot in self.slots].count(True) # NOT USED
+            
+            self.sort_slots()
+
+        def get_slots(self):
+            """Gets the save slots for a particular playthrough
+
+            Returns:
+                list: A list of slots in this particular playthough
+            
+            """
             # This needs to return a list of lists, where each sublist contains all the data about the slot except the thumbnail. This is so that we can use both indices and list comprehension
             # Populate the slotslist by using a 'regex'. 'Regex' is short for "regular expression". It defines rules for extracting wanted data out of a pile of it
             # - This particular regex says that we want matches that: "^"(begins with) + (self.name(the name field of this object) + "-"(to avoid unwanted partial matches))
-            files, slots = renpy.list_saved_games("^" + self.name + "-", fast=True), []
+            self.slots = []
+            saves = renpy.list_saved_games("^" + self.name + "-", fast=True)
             # - We need a slot structure:
             #   - Filename          : Full string as used by Ren'Py file functions
             #   - Last modified     : UNIX epoch offset     - WARNING: Ren'Py file renaming preserves the OS timestamp on Windows. It may not on other systems
@@ -89,16 +103,17 @@ init python:
             #   - Editable name     : What the player sees. It defaults to Playthrough Name + Slot Number
             #   - Locked status     : A string. Code currently assigns meaning to "LOCKED" or "", nothing else
             # - With this in place, our code references the list (with the exception of the thumbnail). Every change to filename subdata must be reflected to the disk file immediately
-            for file in files:
-                subdata = file.split("-")
+            for save in saves:
+                subdata = save.split("-")
+                print(subdata)
                 if (self.name == "auto" or self.name == "quick"):
-                    slots.append([file, renpy.slot_mtime(file), subdata[1], "", FileSaveName(file, empty="", slot=True), ""])
+                    self.slots.append([save, renpy.slot_mtime(save), subdata[1], "", FileSaveName(save, empty="", slot=True), ""])
                 else:
-                    slots.append([file, renpy.slot_mtime(file)] + subdata[1:])
+                    self.slots.append([save, renpy.slot_mtime(save)] + subdata[1:])
             # Pass the data back to the calling expression
-            return slots
+            return self.slots
 
-        def SortSlots(self, reverse=True):
+        def sort_slots(self, reverse=True):
             # Strip any existing slots that have a filename that is "+ New Save +", because we cannot assume that we're dealing with a slotslist that has not already been sorted
             # - NOTE: This doesn't appear to be necessary. I don't know why? - [EDIT:] There is other code that shouldn't work, and does. I think it's just the way Ren'Py handles stuff internally
             # Sort the slots in (reverse) order according to the value of 'persistent.sortby':
@@ -126,7 +141,7 @@ init python:
                     if upper-lower == 2:
                         # There is a single-slot gap here
                         # - NOTE: Since this field may be checked by 'max()' later, we need the string in the same zero-padded, five-wide format that all the of the other slotnumbers are in
-                            # TODO: Fix this as specified in 'Playthrough.GetSlots()', above
+                            # TODO: Fix this as specified in 'Playthrough.get_slots()', above
                         self.slots.insert(slot, ["+ New Save +", "", "{:05}".format(lower + 1), "", "", ""])
                     elif upper-lower > 2:
                         # There is a multi-slot gap here; store the range (as integers) in the 'lastmodified' and 'versionnumber' fields
@@ -184,7 +199,7 @@ init python:
         # This deletes all of the files in 'viewingpt', then removes 'viewingptname' from 'persistent.playthroughslist', then calls 'ResetPtVars()' to clear the current viewing details
         global viewingptname, viewingpt
         # Reload the playthrough, to be sure of having current and unmodified information
-        viewingpt.slots = viewingpt.GetSlots()
+        viewingpt.slots = viewingpt.get_slots()
         for slot in viewingpt.slots:
             if renpy.can_load(slot[0]) == False:
                 raise Exception("Error: File \"{}\" does not exist".format(slot[0]))
@@ -210,7 +225,7 @@ init python:
                 viewingpt = Playthrough(name=viewingptname)
             elif targetaction == "changeplaythroughname":
                 # This updates 'viewingptname', then renames all of the files in 'viewingpt' via 'ReflectSlotChanges()', then updates 'viewingptname' in 'persistent.playthroughslist'
-                viewingpt.slots = viewingpt.GetSlots()
+                viewingpt.slots = viewingpt.get_slots()
                 oldptname = viewingptname
                 viewingptname = userinput
                 for slot in viewingpt.slots:
