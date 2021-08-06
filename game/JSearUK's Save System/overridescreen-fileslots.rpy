@@ -14,8 +14,13 @@ default slotdetails = []
 # - NOTE: The specified duration needs to be greater than zero for the function to be called. Any transition where a function can be specified may be used
 # - NOTE: These lines re-initialise defines. This is not best practice, but it does mean that we can keep all of the changes of this mod to one file, and avoid altering further screens
 # - NOTE: If this behaviour is not desired, simply comment out the three lines below
-define config.after_load_transition = Dissolve(1, time_warp=ResetPtVars)
-define config.exit_transition = Dissolve(1, time_warp=ResetPtVars)
+label after_load: # If it exists, this label is called when a game is loaded. It can be use to fix data when the game is updated.
+    python:
+        ResetPtVars()
+
+label quit: # If it exists, this label is called in a new context when the user quits the game.
+    python:
+        ResetPtVars()
 
 # [ INITIALISATION - FREELY MODIFIABLE ]
 # NOTE: The five 'enable_' defines below will still perform their default behaviour if set to 'False' - but the player will either not see their effect, or not be able to alter it
@@ -56,8 +61,8 @@ init python:
             attribute1_EXAMPLE (data type): Description of attribute1
             name (str): The name of the playthough
             slots (:obj:`list` of :obj:`list`): The list of files for the game
-            lockcount (int): The count of the number of saves locked
-            higherversioncount (int): The count of the number of slots with a higher version than config.version
+            lock_count (int): The count of the number of saves locked
+            higher_version_count (int): The count of the number of slots with a higher version than config.version
 
         """
 
@@ -98,7 +103,7 @@ init python:
             #   - Slot number       : 1-99999, zero-padded 5-character string. If this slot number is exceeded, the "+ New Save +" button is not shown
                                     # [REOPENED] Perhaps set this as a dev-controlled magnitude option? They may want to limit it to 10, 100, 1000, etc.
                                     #  - [EDIT:] If desired, they can handle it
-                                            # TODO: Or I could stop being lazy and rewrite this so that: zero-padding is not a thing; slots are infinite; max() and .SortSlots() use ints, not strings
+                                            # TODO: Or I could stop being lazy and rewrite this so that: zero-padding is not a thing; slots are infinite; max() and .sort_slots() use ints, not strings
             #   - Version number    : The version number of the game when the file was last properly saved (as opposed to renamed)
             #   - Editable name     : What the player sees. It defaults to Playthrough Name + Slot Number
             #   - Locked status     : A string. Code currently assigns meaning to "LOCKED" or "", nothing else
@@ -136,7 +141,7 @@ init python:
                     lower, upper = self.slots[slot][i], self.slots[slot - 1][i]
                     # Dodge 'int()' crashing over a non-decimal string (including an empty one)
                     if not lower.isdecimal() or not upper.isdecimal():
-                        raise Exception("'lower' or 'upper' was not decimal ({} or {}) while inserting intermediate \"+ New Save +\" slot(s) in {}.SortSlots()".format(lower, upper, self.name))
+                        raise Exception("'lower' or 'upper' was not decimal ({} or {}) while inserting intermediate \"+ New Save +\" slot(s) in {}.sort_slots()".format(lower, upper, self.name))
                     lower, upper = int(lower), int(upper)
                     if upper-lower == 2:
                         # There is a single-slot gap here
@@ -155,7 +160,7 @@ init python:
                 # Dodge 'int()' crashing over a non-decimal or empty string...
                 # TODO: Since this type of check gets performed a lot, consider writing a multipurpose safety-check function for type conversions
                 if not slotnumber.isdecimal():
-                    raise Exception("'slotnumber' was not decimal ({}) while inserting topmost \"+ New Save +\" slot in {}.SortSlots()".format(slotnumber, self.name))
+                    raise Exception("'slotnumber' was not decimal ({}) while inserting topmost \"+ New Save +\" slot in {}.sort_slots()".format(slotnumber, self.name))
                 slotnumber = int(slotnumber) + 1
                 # Dodge slot numbers requiring more than five characters...
                     # TODO: This check will become obsolete once we've done away with the five-character-width requirement. Get rid of it, once that is done
@@ -164,7 +169,7 @@ init python:
 
 
 # [ FUNCTIONS ]
-init python:
+init -1 python:
     def ResetPtVars(timeline=1.0):
         # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
@@ -299,7 +304,7 @@ screen file_slots(title):
         use game_menu(title):
             fixed:
                 # Added a button to switch to the Playthroughs system. This doesn't need to reference 'yvalue' because there is no text or edges around that need to be aligned with
-                textbutton "{image=gui/playthroughview.png}":
+                textbutton "{image=JSearUK's Save System/gui/playthroughview.png}":
                     tooltip "Switch to the Playthrough system"
                     text_align (0.5, 0.5)
                     if enable_animation:
@@ -408,7 +413,7 @@ screen file_slots(title):
                                 tooltip "Switch to the Ren'Py {} system".format(title)
                                 xysize (yvalue, yvalue)
                                 hover_background (None if enable_animation else Solid(gui.text_color))
-                                text "{image=gui/renpyview.png}":
+                                text "{image=JSearUK's Save System/gui/renpyview.png}":
                                     align (0.5, 0.5)
                                     if enable_animation:
                                         at HoverSpin
@@ -433,7 +438,7 @@ screen file_slots(title):
                                     tooltip "Create a new Playthrough"
                                     xysize (yvalue, yvalue)
                                     hover_background (None if enable_animation else Solid(gui.text_color))
-                                    text "{image=gui/newplaythrough.png}":
+                                    text "{image=JSearUK's Save System/gui/newplaythrough.png}":
                                         align (0.5, 0.5)
                                         if enable_animation:
                                             at HoverSpin
@@ -457,7 +462,7 @@ screen file_slots(title):
                                             if persistent.playthroughslist[i] == viewingptname and enable_renaming:
                                                 tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
                                                 hover_background (None if enable_animation else Solid(gui.text_color))
-                                                text "{image=gui/rename.png}":
+                                                text "{image=JSearUK's Save System/gui/rename.png}":
                                                     align (0.5, 0.5)
                                                     if enable_animation:
                                                         at HoverSpin
@@ -483,11 +488,11 @@ screen file_slots(title):
                                             if persistent.playthroughslist[i] == viewingptname:
                                                 tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
                                                 hover_background (None if enable_animation else Solid(gui.text_color))
-                                                text "{image=gui/delete.png}":
+                                                text "{image=JSearUK's Save System/gui/delete.png}":
                                                     align (0.5, 0.5)
                                                     if enable_animation:
                                                         at HoverSpin
-                                                action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
+                                                action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nLocked Slots: " + str(viewingpt.lock_count) + "{/color}{/size}" if viewingpt.lock_count else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(gui.insensitive_color) + "}\nSlots from a later version: " + str(viewingpt.higher_version_count) + "{/color}{/size}" if viewingpt.higher_version_count else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
 #
 #                                # Test playthroughs for layout verification
 #                                for i in range(1, 51, 1):
@@ -516,13 +521,13 @@ screen file_slots(title):
                                     text_align (0.5, 0.5) align (0.5, 0.5) ysize yvalue
                                     selected_background gui.text_color text_selected_color gui.hover_color
                                     action [SetVariable("persistent.sortby", "lastmodified"),
-                                            viewingpt.SortSlots]
+                                            viewingpt.sort_slots]
                                 textbutton " Number ":
                                     tooltip "Sort slots by highest slot number first"
                                     text_align (0.5, 0.5) align (0.5, 0.5) ysize yvalue
                                     selected_background gui.text_color text_selected_color gui.hover_color
                                     action [SetVariable("persistent.sortby", "slotnumber"),
-                                            viewingpt.SortSlots]
+                                            viewingpt.sort_slots]
                             null height yvalue
                         null height gui.text_size / 8
                         # Vertically-scrolling viewport for the slotslist
@@ -549,7 +554,7 @@ screen file_slots(title):
                                                 textbutton "+ New Save +":
                                                     tooltip "Create a new save: {}".format(slotname)
                                                     xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5)
-                                                    background slotbackground hover_foreground Frame("gui/emptyframe.png")
+                                                    background slotbackground hover_foreground Frame("JSearUK's Save System/gui/emptyframe.png")
                                                     action [SetVariable("targetaction", "newslotnumber"),
                                                             If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+gui.interface_text_color+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots")),
                                                             AwaitUserInput()]
@@ -568,7 +573,7 @@ screen file_slots(title):
                                             button:
                                                 tooltip "{} {}".format("Load" if title == "Load" else "Overwrite", slotname)
                                                 xsize 1.0 ysize config.thumbnail_height
-                                                background slotbackground hover_foreground Frame("gui/emptyframe.png")
+                                                background slotbackground hover_foreground Frame("JSearUK's Save System/gui/emptyframe.png")
                                                 action [MakePtLast,
                                                         If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{:05}-{}-{}-Unlocked".format(viewingptname, slotnumber, config.version, editablename) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
                                                 if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
@@ -619,7 +624,7 @@ screen file_slots(title):
                                                                     button:
                                                                         tooltip "Rename {}".format(slotname)
                                                                         hover_background (None if enable_animation else Solid(gui.text_color))
-                                                                        text "{image=gui/rename.png}":
+                                                                        text "{image=JSearUK's Save System/gui/rename.png}":
                                                                             align (0.5, 0.5)
                                                                             if enable_animation:
                                                                                 at HoverSpin
@@ -631,7 +636,7 @@ screen file_slots(title):
                                                                     button:
                                                                         tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
                                                                         hover_background (None if enable_animation else Solid(gui.text_color))
-                                                                        text "{}".format("{image=gui/locked.png}" if lockedstatus == "LOCKED" else "{image=gui/unlocked.png}"):
+                                                                        text "{}".format("{image=gui/locked.png}" if lockedstatus == "LOCKED" else "{image=JSearUK's Save System/gui/unlocked.png}"):
                                                                             align (0.5, 0.5)
                                                                             if enable_animation:
                                                                                 at HoverSpin
@@ -641,7 +646,7 @@ screen file_slots(title):
                                                                     button:
                                                                         tooltip "Delete {}".format(slotname)
                                                                         hover_background (None if enable_animation else Solid(gui.text_color))
-                                                                        text "{image=gui/delete.png}":
+                                                                        text "{image=JSearUK's Save System/gui/delete.png}":
                                                                             align (0.5, 0.5)
                                                                             if enable_animation:
                                                                                 at HoverSpin
