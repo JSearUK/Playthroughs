@@ -29,5 +29,6 @@ screenshot*
 *.opus
 *.rpa
 *.rpyc
+*.save
 *.sh
 *.zip
