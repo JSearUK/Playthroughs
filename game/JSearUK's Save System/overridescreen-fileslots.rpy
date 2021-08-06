@@ -91,7 +91,6 @@ init python:
             #   - Locked status     : A string. Code currently assigns meaning to "LOCKED" or "", nothing else
             # - With this in place, our code references the list (with the exception of the thumbnail). Every change to filename subdata must be reflected to the disk file immediately
             for save in saves:
-                print(save.split("-"))
                 save_info = SaveInfo(*save.split("-"))
                 if (self.name == "auto" or self.name == "quick"):
                     slots.append([save, renpy.slot_mtime(save), save_info.slot_num, "", FileSaveName(save, empty="", slot=True), ""])
