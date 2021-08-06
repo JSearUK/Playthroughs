@@ -238,7 +238,8 @@ init -1 python:
                 viewingpt = Playthrough(name=viewingptname)
             elif targetaction == "newslotnumber":
                 # This saves the new file if not already existent, then updates the playthrough list order
-                filename = "{0}-{1:05}-{2}-{0} {1}-Unlocked".format(viewingptname, int(userinput) if userinput.isdecimal() else userinput, config.version)
+                filename = "{0}-{1:05}-{2}-{0} {1}-Unlocked".format(viewingptname, userinput, config.version)
+
                 if renpy.can_load(filename):
                     raise Exception("Error: File \"{}\" already exists".format(filename))
                 renpy.save(filename)
@@ -356,13 +357,13 @@ screen file_slots(title):
                         global lastpage
                         currentpage = FileCurrentPage()
                         # Respect the last page viewed in the previous game session by not initialising 'lastpage' until we have a valid 'currentpage'
-                        # WARNING: THIS IS THE LINE THAT THROWS AN EXCEPTION WHEN THE .RPY AND .RPYC FILES ARE DROPPED INTO CERTAIN DISTRIBUTED PROJECTS! (7.3.5 or below?) IT SAYS:
-                        #   File "game/overridescreen-fileslots.rpy", line 363, in <module>
-                        #       if lastpage == None: lastpage = int(currentpage) if currentpage.isdecimal() else 1
-                        # AttributeError: 'str' object has no attribute 'isdecimal'
-                        if lastpage == None: lastpage = int(currentpage) if currentpage.isdecimal() else 1
+                        if not lastpage:
+                            try: lastpage = int(currentpage)
+                            except ValueError: lastpage = 1
                         # Preserve the last numeric page viewed
-                        currentpage = int(currentpage) if currentpage.isdecimal() else lastpage
+                        try: currentpage = int(currentpage)
+                        except ValueError: currentpage = lastpage
+
                         lastpage = currentpage
                         # Set range bounds accordingly
                         maxpage = 10 if currentpage < 10 else currentpage + 1
@@ -536,7 +537,8 @@ screen file_slots(title):
                                         # ...deconstruct the list...
                                         python:
                                             filename, lastmodified, slotnumber, versionnumber, editablename, lockedstatus = slot
-                                            slotnumber = int(slotnumber) if slotnumber.isdecimal() else 0
+                                            try: slotnumber = int(slotnumber)
+                                            except ValueError: slotnumber = 0
                                             slotname = editablename if enable_renaming and editablename else "{} {}".format(viewingptname, slotnumber if slotnumber else "[[{} to {}]".format(lastmodified, versionnumber))
                                             textcolor = gui.text_color
                                         # ...and turn it into a slotbutton with details and sub-buttons
@@ -821,7 +823,8 @@ screen querynumber(query="Hmm?", preload="", minval=None, maxval=None, variable=
                 color tcolor
         # - Test for validity, handling an empty string. Assume valid unless proved otherwise
         python:
-            number = int(currentnumber) if currentnumber.isdecimal() else 0
+            try: number = int(currentnumber)
+            except ValueError: number = 0
             isvalid = True
             if minval: isvalid = False if minval > number else isvalid
             if maxval: isvalid = False if maxval < number else isvalid
