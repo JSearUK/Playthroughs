@@ -54,42 +54,30 @@ init python:
         Attributes:
             attribute1_EXAMPLE (data type): Description of attribute1
             name (str): The name of the playthough
-            slots (:obj:`list` of :obj:`list`): The list of files for the game
             lock_count (int): The count of the number of saves locked
             higher_version_count (int): The count of the number of slots with a higher version than config.version
 
         """
+        # WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
+        # NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
+        # [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
+
 
         def __init__(self, name):
-            """Constructor - defines and initialises the new object properly
-
-            WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
-            NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
-            [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
-
-            Args:
-                name (str): The name of the playthough
-
-            """
             self.name = name
 
-            self.slots = []
-            self.lock_count = [slot[5] for slot in self.slots].count("LOCKED") # NOT USED
-            self.higher_version_count = [slot[3].lower() > config.version.lower() for slot in self.slots].count(True) # NOT USED
+            self.lock_count = [slot[5] for slot in self.slots].count("LOCKED")
+            self.higher_version_count = [slot[3].lower() > config.version.lower() for slot in self.slots].count(True)
             
             self.sort_slots()
 
-        def get_slots(self):
-            """Gets the save slots for a particular playthrough
-
-            Returns:
-                list: A list of slots in this particular playthough
-            
-            """
+        @property
+        def slots(self):
+            """:obj:`set` of :obj:`str`: Gets the list of slots for this playthrough."""
             # This needs to return a list of lists, where each sublist contains all the data about the slot except the thumbnail. This is so that we can use both indices and list comprehension
             # Populate the slotslist by using a 'regex'. 'Regex' is short for "regular expression". It defines rules for extracting wanted data out of a pile of it
             # - This particular regex says that we want matches that: "^"(begins with) + (self.name(the name field of this object) + "-"(to avoid unwanted partial matches))
-            self.slots = []
+            slots = []
             saves = renpy.list_saved_games("^" + self.name + "-", fast=True)
             # - We need a slot structure:
             #   - Filename          : Full string as used by Ren'Py file functions
@@ -103,14 +91,14 @@ init python:
             #   - Locked status     : A string. Code currently assigns meaning to "LOCKED" or "", nothing else
             # - With this in place, our code references the list (with the exception of the thumbnail). Every change to filename subdata must be reflected to the disk file immediately
             for save in saves:
-                subdata = save.split("-")
-                print(subdata)
+                print(save.split("-"))
+                save_info = SaveInfo(*save.split("-"))
                 if (self.name == "auto" or self.name == "quick"):
-                    self.slots.append([save, renpy.slot_mtime(save), subdata[1], "", FileSaveName(save, empty="", slot=True), ""])
+                    slots.append([save, renpy.slot_mtime(save), save_info.slot_num, "", FileSaveName(save, empty="", slot=True), ""])
                 else:
-                    self.slots.append([save, renpy.slot_mtime(save)] + subdata[1:])
+                    slots.append([save, renpy.slot_mtime(save), save_info.slot_num, save_info.version, save_info.name, save_info.locked_status])
             # Pass the data back to the calling expression
-            return self.slots
+            return slots
 
         def sort_slots(self, reverse=True):
             # Strip any existing slots that have a filename that is "+ New Save +", because we cannot assume that we're dealing with a slotslist that has not already been sorted
@@ -161,6 +149,24 @@ init python:
                 if slotnumber < 10000:
                     self.slots.insert(0, ["+ New Save +", "", "{:05}".format(slotnumber), "", "", ""])
 
+    class SaveInfo:
+        """A data class for storing info of a save
+
+        Attributes:
+            playthrough (str): The name of the playthrough
+            slot_num (str): The position of the save slot
+            version (str): The version the save was played on
+            name (str): The name of the save
+            locked_status (str): Whether the save is 'LOCKED' or 'UNLOCKED'
+
+        """
+        
+        def __init__(self, playthough, slot_num, version=None, name=None, locked_status=None):
+            self.playthough = playthough
+            self.slot_num = slot_num
+            self.version = version
+            self.name = name
+            self.locked_status = locked_status
 
 # [ FUNCTIONS ]
 init -1 python:
@@ -198,7 +204,6 @@ init -1 python:
         # This deletes all of the files in 'viewingpt', then removes 'viewingptname' from 'persistent.playthroughslist', then calls 'ResetPtVars()' to clear the current viewing details
         global viewingptname, viewingpt
         # Reload the playthrough, to be sure of having current and unmodified information
-        viewingpt.slots = viewingpt.get_slots()
         for slot in viewingpt.slots:
             if renpy.can_load(slot[0]) == False:
                 raise Exception("Error: File \"{}\" does not exist".format(slot[0]))
@@ -224,7 +229,6 @@ init -1 python:
                 viewingpt = Playthrough(name=viewingptname)
             elif targetaction == "changeplaythroughname":
                 # This updates 'viewingptname', then renames all of the files in 'viewingpt' via 'ReflectSlotChanges()', then updates 'viewingptname' in 'persistent.playthroughslist'
-                viewingpt.slots = viewingpt.get_slots()
                 oldptname = viewingptname
                 viewingptname = userinput
                 for slot in viewingpt.slots:
@@ -238,7 +242,7 @@ init -1 python:
                 viewingpt = Playthrough(name=viewingptname)
             elif targetaction == "newslotnumber":
                 # This saves the new file if not already existent, then updates the playthrough list order
-                filename = "{0}-{1:05}-{2}-{0} {1}-Unlocked".format(viewingptname, userinput, config.version)
+                filename = "{0}-{1:05}-{2}-{0} {1}-Unlocked".format(viewingptname, int(userinput), config.version)
 
                 if renpy.can_load(filename):
                     raise Exception("Error: File \"{}\" already exists".format(filename))
