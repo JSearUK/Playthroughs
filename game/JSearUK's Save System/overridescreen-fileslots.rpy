@@ -95,6 +95,9 @@ define config.has_quicksave = True
 init python:
     # Reference: (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
     class Playthrough:
+        """
+        
+        """
 
         def __init__(self, name=None):
             # Constructor - defines and initialises the new object properly
