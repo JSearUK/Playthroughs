@@ -149,7 +149,7 @@ init python:
 
 
 # [ FUNCTIONS ]
-init python:
+init -1 python:
     def ResetPtVars(timeline=1.0):
         # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
