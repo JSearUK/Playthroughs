@@ -1,7 +1,7 @@
 
 # [ INITIALISATION - BEST TO LEAVE ALONE ]
 default persistent.savesystem = "original"
-default persistent.sortby = "lastmodified"
+default persistent.sortby = "last_modified"
 default persistent.playthroughslist = []
 default lastpage = None
 default viewingptname = ""
@@ -66,18 +66,19 @@ init python:
         def __init__(self, name):
             self.name = name
 
-            self.lock_count = [slot[5] for slot in self.slots].count("LOCKED")
-            self.higher_version_count = [slot[3].lower() > config.version.lower() for slot in self.slots].count(True)
+            self.sorted_slots = []
+            self.lock_count = [slot.version for slot in self.slots].count("LOCKED")
+            self.higher_version_count = [slot.version.lower() > config.version.lower() for slot in self.slots].count(True)
             
             self.sort_slots()
 
         @property
         def slots(self):
-            """:obj:`set` of :obj:`str`: Gets the list of slots for this playthrough."""
+            """:obj:`set` of :obj:`SaveInfo`: Returns the collection of slots for this playthrough."""
             # This needs to return a list of lists, where each sublist contains all the data about the slot except the thumbnail. This is so that we can use both indices and list comprehension
             # Populate the slotslist by using a 'regex'. 'Regex' is short for "regular expression". It defines rules for extracting wanted data out of a pile of it
             # - This particular regex says that we want matches that: "^"(begins with) + (self.name(the name field of this object) + "-"(to avoid unwanted partial matches))
-            slots = []
+            slots = set()
             saves = renpy.list_saved_games("^" + self.name + "-", fast=True)
             # - We need a slot structure:
             #   - Filename          : Full string as used by Ren'Py file functions
@@ -91,11 +92,11 @@ init python:
             #   - Locked status     : A string. Code currently assigns meaning to "LOCKED" or "", nothing else
             # - With this in place, our code references the list (with the exception of the thumbnail). Every change to filename subdata must be reflected to the disk file immediately
             for save in saves:
-                save_info = SaveInfo(*save.split("-"))
-                if (self.name == "auto" or self.name == "quick"):
-                    slots.append([save, renpy.slot_mtime(save), save_info.slot_num, "", FileSaveName(save, empty="", slot=True), ""])
-                else:
-                    slots.append([save, renpy.slot_mtime(save), save_info.slot_num, save_info.version, save_info.name, save_info.locked_status])
+                print(save)
+                try: save_info = SaveInfo(save, renpy.slot_mtime(save), *save.split("-"))
+                except TypeError: save_info = SaveInfo(save, renpy.slot_mtime(save), *save.split("-"), version="", name=FileSaveName(save, empty="", slot=True), locked_status="")
+                
+                slots.add(save_info)
             # Pass the data back to the calling expression
             return slots
 
@@ -104,63 +105,30 @@ init python:
             # - NOTE: This doesn't appear to be necessary. I don't know why? - [EDIT:] There is other code that shouldn't work, and does. I think it's just the way Ren'Py handles stuff internally
             # Sort the slots in (reverse) order according to the value of 'persistent.sortby':
             # - NOTE: The '.sort()' method mutates the original list, making changes in place
-            slotkeys = ["filename", "lastmodified", "slotnumber", "versionnumber", "editablename", "lockedstatus"]
             # ... Since "auto"/"quick" saves are performed cyclically, sorting by "lastmodified" is the same as sorting by "slotnumber" would be for Playthrough slotlists
-            sortby = "lastmodified" if (self.name == "auto" or self.name == "quick") else persistent.sortby
+            sortby = "last_modified" if (self.name == "auto" or self.name == "quick") else persistent.sortby
             # ... Default to "lastmodified" if the requested 'sortby' cannot be found in 'slotkeys[]', and store the index of the required key
-            sortkey = slotkeys.index(sortby) if sortby in slotkeys else slotkeys.index("lastmodified")
             # ... Perform the sort. The '.sort()' method uses a lambda to find the key data to sort against for each item(list of slot details) in the iterable(list of slots)
             # - NOTE: lambdas are disposable anonymous functions that use (an) input(s) to derive a required output. More here: (https://www.w3schools.com/python/python_lambda.asp)
-            self.slots.sort(reverse=reverse, key=lambda x: x[sortkey])
-            # If appropriate, add slots that define "+ New Save +" slots by position. Since "auto"/"quick" are hard-sorted by "lastmodified", this will not affect those 'playthrough's
-            i = slotkeys.index("slotnumber")
-            if sortby == "slotnumber" and len(self.slots) > 1:
-                # We've already sorted the list, so run through it backwards and insert "+ New Save +" slots where needed
-                # - NOTE: Going backwards preserves the indices of yet-to-be-checked slots, because any newly-inserted slots are increasing the length of the list even as we step through it
-                span = len(self.slots) - 1
-                for slot in range(span, 0, -1):
-                    lower, upper = self.slots[slot][i], self.slots[slot - 1][i]
-                    # Dodge 'int()' crashing over a non-decimal string (including an empty one)
-                    if not lower.isdecimal() or not upper.isdecimal():
-                        raise Exception("'lower' or 'upper' was not decimal ({} or {}) while inserting intermediate \"+ New Save +\" slot(s) in {}.sort_slots()".format(lower, upper, self.name))
-                    lower, upper = int(lower), int(upper)
-                    if upper-lower == 2:
-                        # There is a single-slot gap here
-                        # - NOTE: Since this field may be checked by 'max()' later, we need the string in the same zero-padded, five-wide format that all the of the other slotnumbers are in
-                            # TODO: Fix this as specified in 'Playthrough.get_slots()', above
-                        self.slots.insert(slot, ["+ New Save +", "", "{:05}".format(lower + 1), "", "", ""])
-                    elif upper-lower > 2:
-                        # There is a multi-slot gap here; store the range (as integers) in the 'lastmodified' and 'versionnumber' fields
-                        self.slots.insert(slot, ["+ New Save +", lower + 1, "", upper - 1, "", ""])
-            # Finally, insert a "+ New Save +" slot at the beginning of the list - unless we're in "auto"/"quick", or the new slot number would be 10000+
-            if self.name != "auto" and self.name != "quick":
-                # Find the highest slotnumber there currently is, and add 1. Insert this "+ New Save +" slot at the beginning of the list
-                slotnumbers = [slot[i] for slot in self.slots]
-                # Dodge 'max()' crashing over an empty list...
-                slotnumber = max(slotnumbers) if slotnumbers != [] else "0"
-                # Dodge 'int()' crashing over a non-decimal or empty string...
-                # TODO: Since this type of check gets performed a lot, consider writing a multipurpose safety-check function for type conversions
-                if not slotnumber.isdecimal():
-                    raise Exception("'slotnumber' was not decimal ({}) while inserting topmost \"+ New Save +\" slot in {}.sort_slots()".format(slotnumber, self.name))
-                slotnumber = int(slotnumber) + 1
-                # Dodge slot numbers requiring more than five characters...
-                    # TODO: This check will become obsolete once we've done away with the five-character-width requirement. Get rid of it, once that is done
-                if slotnumber < 10000:
-                    self.slots.insert(0, ["+ New Save +", "", "{:05}".format(slotnumber), "", "", ""])
+            self.sorted_slots = sorted(self.slots, reverse=reverse, key=lambda x: getattr(x, sortby))
 
     class SaveInfo:
-        """A data class for storing info of a save
+        """A data class for storing info of a save.
 
         Attributes:
-            playthrough (str): The name of the playthrough
-            slot_num (str): The position of the save slot
-            version (str): The version the save was played on
-            name (str): The name of the save
-            locked_status (str): Whether the save is 'LOCKED' or 'UNLOCKED'
+            file_name (str): The name of the save file.
+            last_modified (int): The epoch time when the save was last modified.
+            playthrough (str): The name of the playthrough.
+            slot_num (str): The position of the save slot.
+            version (str): The version the save was played on.
+            name (str): The name of the save.
+            locked_status (str): Whether the save is 'LOCKED' or 'UNLOCKED'.
 
         """
         
-        def __init__(self, playthough, slot_num, version=None, name=None, locked_status=None):
+        def __init__(self, file_name, last_modified, playthough, slot_num, version, name, locked_status):
+            self.file_name = file_name
+            self.last_modified = last_modified
             self.playthough = playthough
             self.slot_num = slot_num
             self.version = version
@@ -518,13 +486,13 @@ screen file_slots(title):
                                     tooltip "Sort slots by most recently changed first"
                                     text_align (0.5, 0.5) align (0.5, 0.5) ysize yvalue
                                     selected_background gui.text_color text_selected_color gui.hover_color
-                                    action [SetVariable("persistent.sortby", "lastmodified"),
+                                    action [SetVariable("persistent.sortby", "last_modified"),
                                             viewingpt.sort_slots]
                                 textbutton " Number ":
                                     tooltip "Sort slots by highest slot number first"
                                     text_align (0.5, 0.5) align (0.5, 0.5) ysize yvalue
                                     selected_background gui.text_color text_selected_color gui.hover_color
-                                    action [SetVariable("persistent.sortby", "slotnumber"),
+                                    action [SetVariable("persistent.sortby", "slot_num"),
                                             viewingpt.sort_slots]
                             null height yvalue
                         null height gui.text_size / 8
@@ -539,30 +507,20 @@ screen file_slots(title):
                                     for slot in viewingpt.slots:
                                         # ...deconstruct the list...
                                         python:
-                                            filename, lastmodified, slotnumber, versionnumber, editablename, lockedstatus = slot
-                                            try: slotnumber = int(slotnumber)
+                                            # filename, lastmodified, slotnumber, versionnumber, editablename, lockedstatus = slot
+                                            try: slotnumber = int(slot.slot_num)
                                             except ValueError: slotnumber = 0
-                                            slotname = editablename if enable_renaming and editablename else "{} {}".format(viewingptname, slotnumber if slotnumber else "[[{} to {}]".format(lastmodified, versionnumber))
+                                            slotname = slot.name if enable_renaming and slot.name else "{} {}".format(viewingptname, slotnumber if slotnumber else "[[{} to {}]".format(slot.last_modified, slot.version))
                                             textcolor = gui.text_color
                                         # ...and turn it into a slotbutton with details and sub-buttons
                                         # Handle any slot which has been inserted into the list for the purpose of creating a new save, and therefore is not yet a disk file:
-                                        if filename == "+ New Save +":
-                                            # Only produce the button if we're on the Save screen
-                                            # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code...
-                                            if title == "Save":
-                                                textbutton "+ New Save +":
-                                                    tooltip "Create a new save: {}".format(slotname)
-                                                    xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5)
-                                                    background slotbackground hover_foreground Frame("JSearUK's Save System/gui/emptyframe.png")
-                                                    action [SetVariable("targetaction", "newslotnumber"),
-                                                            If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+gui.interface_text_color+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots")),
-                                                            AwaitUserInput()]
+
                                         # Disable any slot that has a version number higher than this app; loading will likely fail and overwriting will likely lose data
                                         # - NOTE: In theory, 'versionnumber' could be type int. However, that should only happen if 'filename' == "+ New Save +" - which is already handled, above
-                                        elif versionnumber.lower() > config.version.lower():
+                                        if slot.version.lower() > config.version.lower():
                                             if enable_versioning:
                                                 $ textcolor = gui.insensitive_color
-                                                textbutton "{} - Version {}".format(editablename, versionnumber):
+                                                textbutton "{} - Version {}".format(slot.name, slot.version):
                                                     sensitive False
                                                     xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5)
                                                     background slotbackground
@@ -574,27 +532,27 @@ screen file_slots(title):
                                                 xsize 1.0 ysize config.thumbnail_height
                                                 background slotbackground hover_foreground Frame("JSearUK's Save System/gui/emptyframe.png")
                                                 action [MakePtLast,
-                                                        If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{:05}-{}-{}-Unlocked".format(viewingptname, slotnumber, config.version, editablename) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
-                                                if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
-                                                    key "save_delete" action FileDelete(filename, slot=True)
-                                                if enable_versioning and versionnumber != "" and versionnumber != config.version:
+                                                        If(title == "Save", false=FileLoad(slot.file_name, slot=True), true=FileSave("{}-{:05}-{}-{}-Unlocked".format(viewingptname, slotnumber, config.version, slot.name) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
+                                                if enable_locking == False or (enable_locking and slot.locked_status != "LOCKED"):
+                                                    key "save_delete" action FileDelete(slot.file_name, slot=True)
+                                                if enable_versioning and slot.version != "" and slot.version != config.version:
                                                     tooltip "{} {}".format("Attempt to load" if title == "Load" else "Overwrite", slotname)
-                                                if title == "Save" and (viewingptname == "auto" or (enable_locking and lockedstatus == "LOCKED")):
+                                                if title == "Save" and (viewingptname == "auto" or (enable_locking and slot.locked_status == "LOCKED")):
                                                     sensitive False
                                                     $ textcolor = gui.insensitive_color
                                                 hbox:
                                                     # Thumbnail on the left. Setting it as a background to a frame permits regular content to appear overlaid, if needed
                                                     frame:
                                                         xsize config.thumbnail_width ysize config.thumbnail_height
-                                                        background FileScreenshot(filename, slot=True)
+                                                        background FileScreenshot(slot.file_name, slot=True)
                                                         # Grey out the thumbnail if versioning is enabled, the version number is known, and it doesn't match the current version
-                                                        if enable_versioning and versionnumber != "" and versionnumber != config.version:
+                                                        if enable_versioning and slot.version != "" and slot.version != config.version:
                                                             add Solid("#000000CF")
                                                             vbox:
                                                                 at truecenter
                                                                 text "- Older Save -" xalign 0.5 size gui.slot_button_text_size style "fileslots_input"
                                                                 null height gui.slot_button_text_size
-                                                                text "v{}".format(versionnumber) xalign 0.5 size gui.slot_button_text_size style "fileslots_input"
+                                                                text "v{}".format(slot.version) xalign 0.5 size gui.slot_button_text_size style "fileslots_input"
                                                     null width gui.scrollbar_size
                                                     viewport:
                                                         scrollbars "vertical" mousewheel "change"
@@ -613,13 +571,13 @@ screen file_slots(title):
                                                                 xfill False align (0.5, 0.5)
                                                                 text "{}".format(slotname) color textcolor align (0.5, 0.5) text_align 0.5 layout "subtitle"
                                                             null height 10
-                                                            text "{}".format(FileTime(filename, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True)) xalign 0.5 size gui.slot_button_text_size color textcolor
+                                                            text "{}".format(FileTime(slot.file_name, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True)) xalign 0.5 size gui.slot_button_text_size color textcolor
                                                             null height 10
                                                             # Icon buttons
                                                             hbox:
                                                                 xalign 0.5
                                                                 # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
-                                                                if enable_renaming and editablename and (enable_locking == False or (enable_locking and lockedstatus != "LOCKED")):
+                                                                if enable_renaming and slot.name and (enable_locking == False or (enable_locking and slot.locked_status != "LOCKED")):
                                                                     button:
                                                                         tooltip "Rename {}".format(slotname)
                                                                         hover_background (None if enable_animation else Solid(gui.text_color))
@@ -628,20 +586,20 @@ screen file_slots(title):
                                                                             if enable_animation:
                                                                                 at HoverSpin
                                                                         action [SetVariable("targetaction", "changeslotname"),
-                                                                                SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, lockedstatus]),
-                                                                                Show("querystring", query="{color="+gui.interface_text_color+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
+                                                                                SetVariable("slotdetails", [slot.file_name, "{:05}".format(slotnumber), slot.version, slot.name, slot.locked_status]),
+                                                                                Show("querystring", query="{color="+gui.interface_text_color+"}Please enter the slot name:{/color}", preload=slot.name, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
                                                                                 AwaitUserInput()]
-                                                                if enable_locking and lockedstatus:
+                                                                if enable_locking and slot.locked_status:
                                                                     button:
-                                                                        tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
+                                                                        tooltip "{} {}".format("Unlock" if slot.locked_status == "LOCKED" else "Lock", slotname)
                                                                         hover_background (None if enable_animation else Solid(gui.text_color))
-                                                                        text "{}".format("{image=gui/locked.png}" if lockedstatus == "LOCKED" else "{image=JSearUK's Save System/gui/unlocked.png}"):
+                                                                        text "{}".format("{image=gui/locked.png}" if slot.locked_status == "LOCKED" else "{image=JSearUK's Save System/gui/unlocked.png}"):
                                                                             align (0.5, 0.5)
                                                                             if enable_animation:
                                                                                 at HoverSpin
-                                                                        action [SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED"]),
+                                                                        action [SetVariable("slotdetails", [slot.file_name, "{:05}".format(slotnumber), slot.version, slot.name, "Unlocked" if slot.locked_status == "LOCKED" else "LOCKED"]),
                                                                                 ReflectSlotChanges]
-                                                                if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
+                                                                if enable_locking == False or (enable_locking and slot.locked_status != "LOCKED"):
                                                                     button:
                                                                         tooltip "Delete {}".format(slotname)
                                                                         hover_background (None if enable_animation else Solid(gui.text_color))
@@ -649,8 +607,16 @@ screen file_slots(title):
                                                                             align (0.5, 0.5)
                                                                             if enable_animation:
                                                                                 at HoverSpin
-                                                                        action FileDelete(filename, slot=True)
+                                                                        action FileDelete(slot.file_name, slot=True)
 #
+                                    if viewingpt and title == "Save":
+                                        # Only produce the button if we're on the Save screen
+                                        # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code...
+                                        textbutton "+ New Save +":
+                                            xsize 1.0 ysize config.thumbnail_height text_align (0.5, 0.5)
+                                            background slotbackground hover_foreground Frame("JSearUK's Save System/gui/emptyframe.png")
+                                            action [SetVariable("targetaction", "newslotnumber"), Function(AwaitUserInput)]
+                                            # action [ If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+gui.interface_text_color+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=slot.version, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots")),
 #                                                # TODO: Test using 'side:' to structure this button more robustly
 #                                                side "l c":
 #                                                    # Thumbnail on the left. Setting it as a background to a frame permits regular content to appear overlaid, if needed
