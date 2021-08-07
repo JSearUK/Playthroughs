@@ -13,7 +13,7 @@ default slotdetails = []
 # When exiting the game menu, or after loading, clear the variables that store the details of the playthrough being viewed. Do this by re-assigning a custom transition to those events
 # - NOTE: The specified duration needs to be greater than zero for the function to be called. Any transition where a function can be specified may be used
 # - NOTE: These lines re-initialise defines. This is not best practice, but it does mean that we can keep all of the changes of this mod to one file, and avoid altering further screens
-# - NOTE: If this behaviour is not desired, simply comment out the three lines below
+# - NOTE: If this behaviour is not desired, simply comment out the two lines below
 define config.after_load_transition = Dissolve(1, time_warp=ResetPtVars)
 define config.exit_transition = Dissolve(1, time_warp=ResetPtVars)
 
@@ -28,6 +28,8 @@ define enable_renaming = True
 define enable_locking = True
     # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, overwritten or deleted in-game
     # TODO: Check that this still works as intended with files that are locked when 'enable_locking' is False
+    # - [EDIT:] If there are locked files preesent when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved
+        # TODO: Decide if this behaviour is correct, or needs amending
 define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified" and "slotnumber" by default; "versionnumber" and "lockedstatus" may also be of use
 define enable_animation = False
@@ -252,6 +254,9 @@ style fileslots_button_text is fileslots_text:
     insensitive_color gui.insensitive_color
 style fileslots_input is fileslots_text:
     # I use pure white as a color for "text focus"; contextual information or input that the user should pay attention to. Ofc, if the dev is using white everywhere, this won't be as effective /shrug
+    # NOTE: Dropping this into The Question results in tooltip text that is transparent (the outline is present), but only on the Playthroughs page - it is as intended on the Ren'Py page?
+    # - [EDIT:] Changing the value to "#FFFF" has no effect. Possible workaround: two outlines, so at least one is high contrast [(absolute(2), "#000F", 0, 0), (absolute(1), "#FFFF", 0, 0)]
+        # TODO: Figure out why, and how to avoid the override in other games
     color "#FFF"
 style fileslots_viewport is fileslots:
     xfill True
