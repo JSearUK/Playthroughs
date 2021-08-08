@@ -101,6 +101,11 @@ init python:
             return slots
 
         def sort_slots(self, reverse=True):
+            """Sets `sorted_slots` equal to the correct sorted version of `slots`
+
+            Args:
+                reverse (:obj:`bool`, optional): whether or not the sort should be reversed. Defaults to True.   
+            """
             # Strip any existing slots that have a filename that is "+ New Save +", because we cannot assume that we're dealing with a slotslist that has not already been sorted
             # - NOTE: This doesn't appear to be necessary. I don't know why? - [EDIT:] There is other code that shouldn't work, and does. I think it's just the way Ren'Py handles stuff internally
             # Sort the slots in (reverse) order according to the value of 'persistent.sortby':
