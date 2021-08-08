@@ -328,7 +328,7 @@ screen file_slots(title):
                         global lastpage
                         currentpage = FileCurrentPage()
                         # Respect the last page viewed in the previous game session by not initialising 'lastpage' until we have a valid 'currentpage'
-                        if not lastpage:
+                        if lastpage is None:
                             try: lastpage = int(currentpage)
                             except ValueError: lastpage = 1
                         # Preserve the last numeric page viewed
@@ -504,7 +504,7 @@ screen file_slots(title):
                                 # Display all the fileslots that are in the playthrough being viewed, keyed off 'viewingptname'. If no playthrough is being viewed, display nothing
                                 if viewingptname != "":
                                     # For each slot in the Playthrough...
-                                    for slot in viewingpt.slots:
+                                    for slot in viewingpt.sorted_slots:
                                         # ...deconstruct the list...
                                         python:
                                             # filename, lastmodified, slotnumber, versionnumber, editablename, lockedstatus = slot
