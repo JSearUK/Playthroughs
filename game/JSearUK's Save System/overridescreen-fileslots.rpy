@@ -555,7 +555,7 @@ screen playthrough_file_slots(title):
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
-                                                                    action NullAction()
+                                                                    action Function(slot.toggle_lock)
 
                                                             elif enable_locking and slot.locked_status == "UNLOCKED":
                                                                 imagebutton:
