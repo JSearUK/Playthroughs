@@ -142,12 +142,10 @@ init python:
 
 # [ FUNCTIONS ]
 init -1 python:
-    def ResetPtVars(timeline=1.0):
-        # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
+    def reset_playthough_variables():
+        """This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables"""
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
-        global viewingptname, viewingpt
         userinput, targetaction, viewingptname, viewingpt, slotdetails = "", "", "", [], []
-        return 1.0
 
     def MakePtLast():
         # Check there is only one copy of 'viewingptname' in the persistent list. If so, delete it and append a new version to the end of the list. If not, throw a bug-checking exception
