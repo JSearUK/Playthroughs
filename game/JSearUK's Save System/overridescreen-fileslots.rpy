@@ -13,6 +13,7 @@ define enable_renaming = True # Allow players to edit their playthrough and save
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
 define enable_animation = False # Determines the hover behaviour of the UI. Current status: Unstable
+define slotforeground = Frame(Transform("JSearUK's Save System/gui/emptyframe.png", matrixcolor=ColorizeMatrix(Color("#000"), Color(gui.text_color))))
 define slotbackground = None #Solid("FFF1")
     # This is what is shown behind each slot, and can be any Displayable or None. Either hard-code it, or use a binding defined at a lower init level
     # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
@@ -76,7 +77,7 @@ python early:
             """Creates a save with a playthrough style filename"""
             filename = "{}-{}".format(self.name, len(self.slots)+1)
             renpy.save(filename, extra_info=save_name)
-            
+
             persistent.playthroughs.append(persistent.playthroughs.pop(persistent.playthroughs.index(self))) # Move playthrough to end of "playthroughs"
 
         def json_additional_info(self, file):
@@ -102,7 +103,7 @@ python early:
             locked_status (str): Whether the save is 'LOCKED' or 'UNLOCKED'.
 
         """
-        
+
         def __init__(self, file_name, last_modified, slot_num, version, name, locked_status):
             self.file_name = file_name
             self.last_modified = last_modified
@@ -226,6 +227,8 @@ screen original_file_slots(title):
                 idle "JSearUK's Save System/gui/playthroughview.png"
                 tooltip "Switch to the Playthrough system"
                 hover_background (None if enable_animation else Solid(gui.text_color))
+                if enable_animation:
+                    at HoverSpin
 
             ## This ensures the input will get the enter event before any of the
             ## buttons do.
@@ -244,7 +247,7 @@ screen original_file_slots(title):
                     value page_name_value
 
                 tooltip "Click to rename"
-                
+
             ## The grid of file slots.
             grid gui.file_slot_cols gui.file_slot_rows:
                 style_prefix "slot"
@@ -282,22 +285,22 @@ screen original_file_slots(title):
                     italic True
                     size gui.interface_text_size
                     align (0.5, 0.9)
-            
+
             ## Buttons to access other pages.
             hbox:
                 style_prefix "page"
-                
+
                 align (0.5, 1.0)
-                
+
                 spacing gui.page_spacing
-                
+
                 textbutton _("<") action FilePagePrevious() tooltip "View previous page"
 
                 if config.has_autosave:
                     textbutton _("{#auto_page}A") action FilePage("auto") tooltip "View Autosaves"
                 if config.has_quicksave:
                     textbutton _("{#quick_page}Q") action FilePage("quick") tooltip "View Quicksaves"
-                        
+
                 python:
                     try:
                         lower_range = max(1, int(persistent._file_page) - 8)
@@ -356,7 +359,7 @@ screen playthrough_file_slots(title):
                             if enable_animation:
                                 at HoverSpin
                             tooltip "Switch to the Ren'Py [title] system"
-                            
+
                         if config.has_autosave:
                             textbutton  _("{#auto_page}A"):
                                 tooltip "Show Autosaves"
@@ -405,6 +408,7 @@ screen playthrough_file_slots(title):
                                     textbutton playthrough.name:
                                         tooltip "Show Slots in the \"[playthrough.name]\" Playthrough"
                                         selected_background Solid(gui.text_color)
+                                        text_selected_color gui.hover_color
                                         text_hover_color gui.hover_color
                                         action SetField(persistent, "current_playthrough", playthrough)
                                         align (0.5, 0.5)
@@ -474,7 +478,7 @@ screen playthrough_file_slots(title):
                                                 action FileLoad(slot.file_name, slot=True)
                                             xysize(1.0, config.thumbnail_height)
                                             background slotbackground
-                                            hover_foreground Frame("JSearUK's Save System/gui/emptyframe.png")
+                                            hover_foreground slotforeground
 
                                             if slot.locked_status == "UNLOCKED":
                                                 key "save_delete" action FileDelete(slot.file_name, slot=True)
@@ -495,7 +499,7 @@ screen playthrough_file_slots(title):
                                                                 xalign 0.5
                                                                 size gui.slot_button_text_size
                                                                 style "fileslots_input"
-                                                            
+
                                                             text "v[slot.version]":
                                                                 xalign 0.5
                                                                 size gui.slot_button_text_size
@@ -531,7 +535,7 @@ screen playthrough_file_slots(title):
                                                         # Last modified time
                                                         text FileTime(slot.file_name, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True):
                                                             xalign 0.5
-                                                            size gui.slot_button_text_size 
+                                                            size gui.slot_button_text_size
 
                                                         # Icon buttons
                                                         hbox:
@@ -581,7 +585,7 @@ screen playthrough_file_slots(title):
                                     textbutton "+ New Save +":
                                         xysize (1.0, config.thumbnail_height)
                                         background slotbackground
-                                        hover_foreground Frame("JSearUK's Save System/gui/emptyframe.png")
+                                        hover_foreground slotforeground
                                         action Show("save_input", playthrough=persistent.current_playthrough)
                                         text_align (0.5, 0.5)
 
@@ -609,7 +613,7 @@ screen playthrough_input(playthrough=None):
 
             input:
                 value ScreenVariableInputValue("playthrough_name")
-                allow "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                allow "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
                 length 35
                 xalign 0.5
 
