@@ -16,11 +16,11 @@ default slotdetails = []
 # - NOTE: If this behaviour is not desired, simply comment out the three lines below
 label after_load: # If it exists, this label is called when a game is loaded. It can be use to fix data when the game is updated.
     python:
-        ResetPtVars()
+        reset_playthough_variables()
 
 label quit: # If it exists, this label is called in a new context when the user quits the game.
     python:
-        ResetPtVars()
+        reset_playthough_variables()
 
 # [ INITIALISATION - FREELY MODIFIABLE ]
 # NOTE: The five 'enable_' defines below will still perform their default behaviour if set to 'False' - but the player will either not see their effect, or not be able to alter it
