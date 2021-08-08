@@ -34,3 +34,5 @@
 - [x] [EDIT:] Putting HoverSpin icons into the viewport guarantees this behavior. Certain results of 'layout "subtitle"' can also provoke this behaviour
 - [x] [EDIT:] Moving the icons up a row, so that the timestamp is displayed below them, makes no difference
 
+# [ OSCAR'S LIST ]
+- [x] Rethink renaming as current method doesn't save new name after interation
