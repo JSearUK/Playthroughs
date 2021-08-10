@@ -12,7 +12,7 @@ define enable_versioning = True # Warns players if save is out of date, OR from 
 define enable_renaming = True # Allow players to edit their playthrough and save names
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
-define enable_animation = False # Determines the hover behaviour of the UI. Current status: Unstable
+define enable_animation = True # Determines the hover behaviour of the UI. Current status: Works just fine, but produces weirdness if inside
 define slotforeground = Frame(Transform("JSearUK's Save System/gui/emptyframe.png", matrixcolor=ColorizeMatrix(Color("#000"), Color(gui.text_color))))
 define slotbackground = None #Solid("FFF1") # This is what is shown behind each slot, and can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default)
 
@@ -395,35 +395,47 @@ screen playthrough_file_slots(title):
                             # Display buttons for the contents of 'persistent.playthroughs' in reverse order. Filtering out "auto" and "quick"
                             for playthrough in reversed(filter(lambda playthrough: playthrough.name not in ("auto", "quick"), persistent.playthroughs)):
 
-                                # # Using a side allows us to use xfill True or xsize 1.0 for the central button, without compromising the size of any end buttons or having to calculate around them
-                                hbox:
-                                    xfill True
+                                # Using a side allows us to use xfill True or xsize 1.0 for the central button, without compromising the size of any end buttons or having to calculate around them
+                                # NOTE: Square-bracket string interpolation cannot be meaningfully used with a binding used to hold the return from '__next__()'; they will all show the last value
+                                side "l c r":
 
-                                    if enable_renaming:
-                                        imagebutton:
-                                            idle "JSearUK's Save System/gui/rename.png"
+                                    button:
+                                        xysize (yvalue, yvalue)
+                                        action None
+                                        if enable_renaming and persistent.current_playthrough.name == playthrough.name:
+                                            tooltip "Rename the \"{}\" Playthrough".format(playthrough.name)
                                             hover_background (None if enable_animation else Solid(gui.text_color))
-                                            if enable_animation:
-                                                at HoverSpin
+                                            text "{image=JSearUK's Save System/gui/rename.png}":
+                                                align (0.5, 0.5)
+                                                if enable_animation:
+                                                    at HoverSpin
                                             action Show("playthrough_input", playthrough=playthrough)
-                                            tooltip "Rename the \"[playthrough.name]\" Playthrough"
 
-                                    textbutton playthrough.name:
-                                        tooltip "Show Slots in the \"[playthrough.name]\" Playthrough"
+                                    button:
+                                        tooltip "Show Slots in the \"{}\" Playthrough".format(playthrough.name)
+                                        xysize (1.0, yvalue)
                                         selected_background Solid(gui.text_color)
-                                        text_selected_color gui.hover_color
-                                        text_hover_color gui.hover_color
+                                        viewport:
+                                            xfill False
+                                            align (0.5, 0.5)
+                                            edgescroll (50, 500)
+                                            text " [playthrough.name] ": # Square-bracket interpolation of the return from an iterator is not a problem here. Not sure why - some guesses
+                                                layout "nobreak"
+                                                hover_color gui.hover_color
+                                                color (gui.hover_color if persistent.current_playthrough.name == playthrough.name else gui.text_color)
                                         action SetField(persistent, "current_playthrough", playthrough)
-                                        align (0.5, 0.5)
 
-                                    imagebutton:
-                                        tooltip "Delete the \"[playthrough.name]\" Playthrough"
-                                        idle "JSearUK's Save System/gui/delete.png"
-                                        hover_background (None if enable_animation else Solid(gui.text_color))
-                                        if enable_animation:
-                                            at HoverSpin
-                                        action Confirm("Are you sure you want to delete this Playthrough?", Function(playthrough.delete), confirm_selected=True)
-                                        xalign 1.0
+                                    button:
+                                        xysize (yvalue, yvalue)
+                                        action None
+                                        if persistent.current_playthrough.name == playthrough.name:
+                                            tooltip "Delete the \"{}\" Playthrough".format(playthrough.name)
+                                            hover_background (None if enable_animation else Solid(gui.text_color))
+                                            text "{image=JSearUK's Save System/gui/delete.png}":
+                                                align (0.5, 0.5)
+                                                if enable_animation:
+                                                    at HoverSpin
+                                            action Confirm("Are you sure you want to delete this Playthrough?", Function(playthrough.delete), confirm_selected=True)
 
                 # Fileslots panel
                 vbox:
@@ -557,7 +569,7 @@ screen playthrough_file_slots(title):
 
                                                             if enable_locking and slot.locked_status == "LOCKED":
                                                                 imagebutton:
-                                                                    idle "JSearUK's Save System/gui/unlocked.png"
+                                                                    idle "JSearUK's Save System/gui/locked.png"
                                                                     tooltip "Unlock [slot.name]"
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
@@ -566,7 +578,7 @@ screen playthrough_file_slots(title):
 
                                                             elif enable_locking and slot.locked_status == "UNLOCKED":
                                                                 imagebutton:
-                                                                    idle "JSearUK's Save System/gui/locked.png"
+                                                                    idle "JSearUK's Save System/gui/unlocked.png"
                                                                     tooltip "Lock [slot.name]"
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
