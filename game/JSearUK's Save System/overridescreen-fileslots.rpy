@@ -8,16 +8,14 @@ default persistent.current_playthrough = None
 
 
 # [ CONFIG VARIABLES ]
-define enable_versioning = True # Warns players if save is out of date
+define enable_versioning = True # Warns players if save is out of date, OR from an even newer version of the game
 define enable_renaming = True # Allow players to edit their playthrough and save names
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
 define enable_animation = False # Determines the hover behaviour of the UI. Current status: Unstable
 define slotforeground = Frame(Transform("JSearUK's Save System/gui/emptyframe.png", matrixcolor=ColorizeMatrix(Color("#000"), Color(gui.text_color))))
-define slotbackground = None #Solid("FFF1")
-    # This is what is shown behind each slot, and can be any Displayable or None. Either hard-code it, or use a binding defined at a lower init level
-    # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
-    # - NOTE: None is the default, removing the background, resulting in total transparency
+define slotbackground = None #Solid("FFF1") # This is what is shown behind each slot, and can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default)
+
 
 # [ CLASSES ]
 python early:
@@ -136,6 +134,11 @@ init -1 python:
             playthrough_name = save.split('-')[0]
 
             if playthrough_name == "_reload": continue
+            try:
+                playthrough_name = int(playthrough_name)
+                continue
+            except ValueError:
+                pass
             if playthrough_name in {playthrough.name for playthrough in persistent.playthroughs}: continue
 
             playthrough = Playthrough(name=playthrough_name)
