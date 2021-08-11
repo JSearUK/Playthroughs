@@ -12,9 +12,9 @@ define enable_versioning = True # Warns players if save is out of date, OR from 
 define enable_renaming = True # Allow players to edit their playthrough and save names
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
-define enable_animation = True # Determines the hover behaviour of the UI. Current status: Works just fine, but produces weirdness if inside
-define slotforeground = Frame(Transform("JSearUK's Save System/gui/emptyframe.png", matrixcolor=ColorizeMatrix(Color("#000"), Color(gui.text_color))))
-define slotbackground = None #Solid("FFF1") # This is what is shown behind each slot, and can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default)
+define enable_animation = False # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
+define slotforeground = Frame(Transform("JSearUK's Save System/gui/emptyframe.png", matrixcolor=ColorizeMatrix(Color("#000"), Color(gui.text_color)))) # Doesn't work for <= 7.3.5
+define slotbackground = Solid("FFF1") # This is what is shown behind each slot, and can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default)
 
 
 # [ CLASSES ]
@@ -200,9 +200,9 @@ style fileslots_vscrollbar:
 
 
 # [ TRANSFORMS ]
+# Until 7.4.9 is released, it is necessary to handle both normal and selected states, because this is usually applied to a button
 transform HoverSpin:
-    # rotate_pad True       # - [EDIT:] This doesn't seem to make any difference, either because the image is square or because the background is transparent. So no need for further computation
-    # Until 7.4.9 is released, it is necessary to handle both normal and selected states, because this is usually applied to a button
+    #rotate_pad True       # - [EDIT:] This doesn't seem to make any difference, either because the image is square or because the background is transparent. So no need for further computation
     on selected_hover, hover:
         linear 1.0 rotate 359
         rotate 0
@@ -341,17 +341,19 @@ screen playthrough_file_slots(title):
                 # Playthroughs panel
                 vbox:
                     xsize 0.33
-                    spacing 3
 
                     # This header and the panel below it are offset slightly to the left, to compensate for the width and spacing of the vertical scrollbar in the viewport below them
                     text "Playthroughs":
                         color gui.interface_text_color
                         size gui.label_text_size
                         xalign 0.5
+                        xoffset -(gui.scrollbar_size + 5)
 
                     # Display top panel, which contains 1-4 buttons
                     hbox:
+                        ysize yvalue
                         xalign 0.5
+                        xoffset -(gui.scrollbar_size + 5)
                         spacing 10
 
                         # Provide a button to switch to the original save system
@@ -445,9 +447,9 @@ screen playthrough_file_slots(title):
                         color gui.interface_text_color
                         size gui.label_text_size
                     # Provide (or not) buttons that alter the key that the slotslist is sorted on
-                    # TODO: See if I can't tighten this up. It might not need to have all those properties specified
                     if persistent.current_playthrough:
                         hbox:
+                            ysize yvalue
                             spacing 20
 
                             if enable_sorting:
@@ -469,6 +471,7 @@ screen playthrough_file_slots(title):
                         viewport:
                             scrollbars "vertical"
                             mousewheel True
+                            spacing 5
 
                             vbox:
                                 spacing 5
@@ -476,20 +479,41 @@ screen playthrough_file_slots(title):
                                     # For each slot in the Playthrough...
                                 for slot in persistent.current_playthrough.sorted_slots:
                                     if slot.version > config.version and enable_versioning:
-                                        textbutton "[slot.name] - Version [slot.version]":
+                                        fixed:
                                             xysize (1.0, config.thumbnail_height)
-                                            background slotbackground
-                                            action NullAction()
+
+                                            add slotbackground
+                                            add FileScreenshot(slot.file_name, slot=True)
+                                            add "#000000CF"
+
+                                            hbox:
+
+                                                fixed:
+                                                    xysize (config.thumbnail_width, config.thumbnail_height)
+
+                                                fixed:
+                                                    xysize (1.0, 1.0)
+
+                                                    vbox:
+                                                        align (0.5, 0.5)
+
+                                                        text "- Newer Save -":
+                                                            xalign 0.5
+                                                            color gui.insensitive_color
+
+                                                        text "Version: {}".format(slot.version):
+                                                            xalign 0.5
+                                                            color gui.insensitive_color
 
                                     else:
                                         button:
                                             if title == "Save":
-                                                tooltip "Overwrite [slot.name]"
+                                                tooltip "Overwrite {}".format(slot.name)
                                                 if slot.locked_status == "UNLOCKED":
                                                     action Show("save_input", playthrough=persistent.current_playthrough)
 
                                             elif title == "Load":
-                                                tooltip "Load [slot.name]"
+                                                tooltip "Load {}".format(slot.name)
                                                 action FileLoad(slot.file_name, slot=True)
                                             xysize(1.0, config.thumbnail_height)
                                             background slotbackground
@@ -508,6 +532,7 @@ screen playthrough_file_slots(title):
                                                     if enable_versioning and slot.version != config.version:
                                                         add "#000000CF"
                                                         vbox:
+                                                            box_wrap True
                                                             align (0.5, 0.5)
 
                                                             text "- Older Save -":
@@ -515,7 +540,7 @@ screen playthrough_file_slots(title):
                                                                 size gui.slot_button_text_size
                                                                 style "fileslots_input"
 
-                                                            text "v[slot.version]":
+                                                            text "Version: {}".format(slot.version):
                                                                 xalign 0.5
                                                                 size gui.slot_button_text_size
                                                                 style "fileslots_input"
@@ -543,9 +568,10 @@ screen playthrough_file_slots(title):
                                                             xfill False
                                                             align (0.5, 0.5)
 
-                                                            text slot.name:
+                                                            text "{}".format(slot.name):
                                                                 align (0.5, 0.5)
                                                                 layout "subtitle"
+                                                                text_align 0.5 # If there are multiple lines, this centers them instead of leaving them left-justified (or right-justified if RTL)
 
                                                         # Last modified time
                                                         text FileTime(slot.file_name, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True):
@@ -557,47 +583,58 @@ screen playthrough_file_slots(title):
                                                             xalign 0.5
                                                             spacing 10
 
-                                                            # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
+                                                            # NOTE: "auto/quick" have empty strings for 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
                                                             if enable_renaming and slot.locked_status == "UNLOCKED":
                                                                 imagebutton:
                                                                     idle "JSearUK's Save System/gui/rename.png"
-                                                                    tooltip "Rename [slot.name]"
+                                                                    tooltip "Rename {}".format(slot.name)
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                    else:
+                                                                        padding (4, 4)
                                                                     action Show("save_input", slot=slot)
 
                                                             if enable_locking and slot.locked_status == "LOCKED":
                                                                 imagebutton:
                                                                     idle "JSearUK's Save System/gui/locked.png"
-                                                                    tooltip "Unlock [slot.name]"
+                                                                    tooltip "Unlock {}".format(slot.name)
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                    else:
+                                                                        padding (4, 4)
                                                                     action Function(slot.toggle_lock)
 
                                                             elif enable_locking and slot.locked_status == "UNLOCKED":
                                                                 imagebutton:
                                                                     idle "JSearUK's Save System/gui/unlocked.png"
-                                                                    tooltip "Lock [slot.name]"
+                                                                    tooltip "Lock {}".format(slot.name)
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                    else:
+                                                                        padding (4, 4)
                                                                     action Function(slot.toggle_lock)
 
                                                             if enable_locking == False or (enable_locking and slot.locked_status != "LOCKED"):
                                                                 imagebutton:
-                                                                    tooltip "Delete [slot.name]"
+                                                                    tooltip "Delete {}".format(slot.name)
                                                                     idle "JSearUK's Save System/gui/delete.png"
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                    else:
+                                                                        padding (4, 4)
                                                                     action FileDelete(slot.file_name, slot=True)
 
                                 if title == "Save":
                                     # Only produce the button if we're on the Save screen
-                                    # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code...
+                                    # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code (this might no longer be true)
                                     textbutton "+ New Save +":
+                                        # TODO: This needs a tooltip, which means it needs a name -
+                                        # - logically, this is "{} {}".format(persistent.current_playthrough.name, persistent.current_playthrough.slot_num), which means it needs a slot number -
+                                        # - which could conceivably be wanted in *any* empty slot, not just the len(self.slots)+1 position (which doesn't account for gaps through deletion, anyway)
                                         xysize (1.0, config.thumbnail_height)
                                         background slotbackground
                                         hover_foreground slotforeground
@@ -607,6 +644,7 @@ screen playthrough_file_slots(title):
 # [ ADDITIONAL SCREENS ]
 screen playthrough_input(playthrough=None):
     default playthrough_name = ""
+    modal True
 
     frame:
         align (0.5, 0.5)
@@ -654,6 +692,7 @@ screen playthrough_input(playthrough=None):
     # Show("querystring", query=", excludes="[invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame(), styleprefix="fileslots"),
 
 screen save_input(playthrough=None, slot=None):
+    modal True
     frame:
         align (0.5, 0.5)
         padding (50, 50)
