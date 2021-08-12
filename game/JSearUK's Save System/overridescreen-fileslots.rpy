@@ -5,6 +5,7 @@ default persistent.save_system = "original"
 default persistent.sortby = "last_modified"
 default persistent.playthroughs = []
 default persistent.current_playthrough = None
+default slotbackground = None #Solid("000000CF") # This is what is shown behind each slot, can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default). Can be changed e.g. per screen
 
 
 # [ CONFIG VARIABLES ]
@@ -13,8 +14,14 @@ define enable_renaming = True # Allow players to edit their playthrough and save
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
 define enable_animation = False # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
-define slotforeground = Frame(Transform("JSearUK's Save System/gui/emptyframe.png", matrixcolor=ColorizeMatrix(Color("#000"), Color(gui.text_color)))) # Doesn't work for <= 7.3.5
-define slotbackground = Solid("FFF1") # This is what is shown behind each slot, and can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default)
+define layoutseparator = 5 # The spacing between UI elements of the Playthrough save screen
+init python: # Initialising variables in an 'init python' block is equivalent to defining them; thus the value of 'slotforeground' is considered constant and not saved/tracked by rollback
+    try:
+        ColorizeMatrix # Test for the existence of 'ColorizeMatrix', without running it
+    except NameError:
+        slotforeground = renpy.displayable(Frame("JSearUK's Save System/gui/emptyframe.png")) # ColorizeMatrix is not available. Use another form of focus highlighting e.g. Solid("#FFFFFF1F")
+    else:
+        slotforeground = renpy.displayable(Frame(Transform("JSearUK's Save System/gui/emptyframe.png", matrixcolor=ColorizeMatrix(Color("#000"), Color(gui.text_color))))) # Match the UI color
 
 
 # [ CLASSES ]
@@ -337,7 +344,7 @@ screen playthrough_file_slots(title):
             style_prefix "fileslots"
             # Two panels, side-by-side in an hbox: Playthroughs and Slots
             hbox:
-                spacing 50
+                spacing 60
                 # Playthroughs panel
                 vbox:
                     xsize 0.33
@@ -347,51 +354,64 @@ screen playthrough_file_slots(title):
                         color gui.interface_text_color
                         size gui.label_text_size
                         xalign 0.5
-                        xoffset -(gui.scrollbar_size + 5)
+                        xoffset -round((gui.scrollbar_size + layoutseparator) / 2)
+
+                    null height 5
 
                     # Display top panel, which contains 1-4 buttons
                     hbox:
                         ysize yvalue
                         xalign 0.5
-                        xoffset -(gui.scrollbar_size + 5)
-                        spacing 10
+                        xoffset -round((gui.scrollbar_size + layoutseparator) / 2)
 
                         # Provide a button to switch to the original save system
-                        imagebutton:
-                            action SetField(persistent, "save_system", "original")
-                            idle "JSearUK's Save System/gui/renpyview.png"
-                            hover_background (None if enable_animation else Solid(gui.text_color))
-                            if enable_animation:
-                                at HoverSpin
+                        button:
                             tooltip "Switch to the Ren'Py [title] system"
+                            xysize (yvalue, yvalue)
+                            hover_background (None if enable_animation else Solid(gui.text_color))
+                            text "{image=JSearUK's Save System/gui/renpyview.png}":
+                                align (0.5, 0.5)
+                                if enable_animation:
+                                    at HoverSpin
+                            action SetField(persistent, "save_system", "original")
 
                         if config.has_autosave:
                             textbutton  _("{#auto_page}A"):
                                 tooltip "Show Autosaves"
+                                xysize (yvalue, yvalue)
+                                text_align (0.5, 0.5)
+                                selected_background gui.text_color
                                 text_selected_color gui.hover_color
                                 action SetField(persistent, "current_playthrough", "auto")
 
                         if config.has_quicksave:
                             textbutton _("{#quick_page}Q"):
                                 tooltip "Show Quicksaves"
+                                xysize (yvalue, yvalue)
+                                text_align (0.5, 0.5)
+                                selected_background gui.text_color
                                 text_selected_color gui.hover_color
                                 action SetField(persistent, "current_playthrough", "quick")
 
                         # If we're on the Save screen, provide a button to allow the creation of a new, uniquely-named, playthrough that is also not simply a number (Ren'Py Pages)
                         if title == "Save":
-                            imagebutton:
+                            button:
+                                xysize (yvalue, yvalue)
                                 tooltip "Create a new Playthrough"
-                                idle "JSearUK's Save System/gui/newplaythrough.png"
                                 hover_background (None if enable_animation else Solid(gui.text_color))
-                                if enable_animation:
-                                    at HoverSpin
+                                text "{image=JSearUK's Save System/gui/newplaythrough.png}":
+                                    align (0.5, 0.5)
+                                    if enable_animation:
+                                        at HoverSpin
                                 action Show("playthrough_input")
+
+                    null height 5
 
                     # Vertically-scrolling viewport for the list of Playthroughs
                     viewport:
                         scrollbars "vertical"
                         mousewheel True
-                        spacing 5
+                        spacing layoutseparator
 
                         vbox:
                             # Display buttons for the contents of 'persistent.playthroughs' in reverse order. Filtering out "auto" and "quick"
@@ -446,37 +466,45 @@ screen playthrough_file_slots(title):
                     text "Slots":
                         color gui.interface_text_color
                         size gui.label_text_size
+
+                    null height 5
+
                     # Provide (or not) buttons that alter the key that the slotslist is sorted on
                     if persistent.current_playthrough:
                         hbox:
                             ysize yvalue
-                            spacing 20
 
                             if enable_sorting:
-                                textbutton "Recent":
+                                textbutton " Recent ":
                                     tooltip "Sort slots by most recently changed first"
-                                    align (0.5, 0.5)
+                                    ysize yvalue
+                                    xminimum yvalue
+                                    text_align (0.5, 0.5)
                                     selected_background gui.text_color
                                     text_selected_color gui.hover_color
                                     action [SetField(persistent, "sortby", "last_modified")]
 
-                                textbutton "Number":
+                                textbutton " Number ":
                                     tooltip "Sort slots by highest slot number first"
-                                    align (0.5, 0.5)
+                                    ysize yvalue
+                                    xminimum yvalue
+                                    text_align (0.5, 0.5)
                                     selected_background gui.text_color
                                     text_selected_color gui.hover_color
                                     action [SetField(persistent, "sortby", "slot_num")]
+
+                        null height 5
 
                         # Vertically-scrolling viewport for the slotslist
                         viewport:
                             scrollbars "vertical"
                             mousewheel True
-                            spacing 5
+                            spacing layoutseparator
 
                             vbox:
-                                spacing 5
-                                # Display all the fileslots that are in the playthrough being viewed, keyed off 'viewingptname'. If no playthrough is being viewed, display nothing
-                                    # For each slot in the Playthrough...
+                                spacing layoutseparator
+                                # Display all the fileslots that are in the playthrough being viewed. If no playthrough is being viewed, display nothing
+                                # For each slot in the Playthrough...
                                 for slot in persistent.current_playthrough.sorted_slots:
                                     if slot.version > config.version and enable_versioning:
                                         fixed:
@@ -501,7 +529,7 @@ screen playthrough_file_slots(title):
                                                             xalign 0.5
                                                             color gui.insensitive_color
 
-                                                        text "Version: {}".format(slot.version):
+                                                        text "Version: [slot.version]":
                                                             xalign 0.5
                                                             color gui.insensitive_color
 
@@ -540,7 +568,7 @@ screen playthrough_file_slots(title):
                                                                 size gui.slot_button_text_size
                                                                 style "fileslots_input"
 
-                                                            text "Version: {}".format(slot.version):
+                                                            text "Version: [slot.version]":
                                                                 xalign 0.5
                                                                 size gui.slot_button_text_size
                                                                 style "fileslots_input"
@@ -549,6 +577,7 @@ screen playthrough_file_slots(title):
                                                     scrollbars "vertical"
                                                     mousewheel "change"
                                                     align (0.5, 0.5)
+                                                    spacing layoutseparator
 
                                                     vbox:
                                                         align (0.5, 0.5)
@@ -568,7 +597,7 @@ screen playthrough_file_slots(title):
                                                             xfill False
                                                             align (0.5, 0.5)
 
-                                                            text "{}".format(slot.name):
+                                                            text "[slot.name]":
                                                                 align (0.5, 0.5)
                                                                 layout "subtitle"
                                                                 text_align 0.5 # If there are multiple lines, this centers them instead of leaving them left-justified (or right-justified if RTL)
@@ -581,7 +610,6 @@ screen playthrough_file_slots(title):
                                                         # Icon buttons
                                                         hbox:
                                                             xalign 0.5
-                                                            spacing 10
 
                                                             # NOTE: "auto/quick" have empty strings for 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
                                                             if enable_renaming and slot.locked_status == "UNLOCKED":
