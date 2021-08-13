@@ -13,7 +13,7 @@ define enable_versioning = True # Warns players if save is out of date, OR from 
 define enable_renaming = True # Allow players to edit their playthrough and save names
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
-define enable_animation = True # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
+define enable_animation = False # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
 define layoutseparator = 5 # The spacing between UI elements of the Playthrough save screen
 init python: # Initialising variables in an 'init python' block is equivalent to defining them; thus the value of 'slotforeground' is considered constant and not saved/tracked by rollback
     try:
@@ -331,17 +331,23 @@ screen playthrough_file_slots(title):
     $ yvalue = 32 if gui.text_size < 22 else int(gui.text_size * 1.5)
 
     use game_menu(title):
-        # Collect and display any active tooltip on this page
-        $ help = GetTooltip()
-        if help:
-            text help:
-                style "fileslots_input"
-                italic True
-                size gui.interface_text_size
-                pos (50, -50)
+        style_prefix "fileslots"
 
-        fixed:
-            style_prefix "fileslots"
+        side "t c":
+            hbox:
+                ysize int(gui.text_size * 1.5)
+                at right
+
+                # Collect and display any active tooltip on this page
+                $ help = GetTooltip()
+                if help:
+                    text help:
+                        style "fileslots_input"
+                        italic True
+                        yalign 0.0
+                        xoffset -(gui.scrollbar_size + layoutseparator)
+                        size gui.text_size
+
             # Two panels, side-by-side in an hbox: Playthroughs and Slots
             hbox:
                 spacing 60
@@ -368,6 +374,7 @@ screen playthrough_file_slots(title):
                         button:
                             tooltip "Switch to the Ren'Py [title] system"
                             xysize (yvalue, yvalue)
+                            focus_mask True
                             hover_background (None if enable_animation else Solid(gui.text_color))
                             text "{image=JSearUK's Save System/gui/renpyview.png}":
                                 align (0.5, 0.5)
@@ -396,8 +403,9 @@ screen playthrough_file_slots(title):
                         # If we're on the Save screen, provide a button to allow the creation of a new, uniquely-named, playthrough that is also not simply a number (Ren'Py Pages)
                         if title == "Save":
                             button:
-                                xysize (yvalue, yvalue)
                                 tooltip "Create a new Playthrough"
+                                xysize (yvalue, yvalue)
+                                focus_mask True
                                 hover_background (None if enable_animation else Solid(gui.text_color))
                                 text "{image=JSearUK's Save System/gui/newplaythrough.png}":
                                     align (0.5, 0.5)
@@ -426,6 +434,7 @@ screen playthrough_file_slots(title):
                                         action None
                                         if enable_renaming and persistent.current_playthrough.name == playthrough.name:
                                             tooltip "Rename the \"{}\" Playthrough".format(playthrough.name)
+                                            focus_mask True
                                             hover_background (None if enable_animation else Solid(gui.text_color))
                                             text "{image=JSearUK's Save System/gui/rename.png}":
                                                 align (0.5, 0.5)
@@ -452,6 +461,7 @@ screen playthrough_file_slots(title):
                                         action None
                                         if persistent.current_playthrough.name == playthrough.name:
                                             tooltip "Delete the \"{}\" Playthrough".format(playthrough.name)
+                                            focus_mask True
                                             hover_background (None if enable_animation else Solid(gui.text_color))
                                             text "{image=JSearUK's Save System/gui/delete.png}":
                                                 align (0.5, 0.5)
@@ -544,7 +554,7 @@ screen playthrough_file_slots(title):
 
                                                         vbox:
                                                             align (0.5, 0.5)
-                                                            spacing 10
+                                                            spacing layoutseparator
 
                                                             text "- Newer Save -":
                                                                 align (0.5, 0.5)
@@ -558,6 +568,10 @@ screen playthrough_file_slots(title):
 
                                     else:
                                         button:
+                                            xysize (1.0, config.thumbnail_height)
+                                            background slotbackground
+                                            hover_foreground slotforeground
+
                                             if title == "Save":
                                                 tooltip "Overwrite {}".format(slot.name)
                                                 if slot.locked_status == "UNLOCKED":
@@ -566,9 +580,6 @@ screen playthrough_file_slots(title):
                                             elif title == "Load":
                                                 tooltip "Load {}".format(slot.name)
                                                 action FileLoad(slot.file_name, slot=True)
-                                            xysize(1.0, config.thumbnail_height)
-                                            background slotbackground
-                                            hover_foreground slotforeground
 
                                             if slot.locked_status == "UNLOCKED":
                                                 key "save_delete" action FileDelete(slot.file_name, slot=True)
@@ -604,7 +615,7 @@ screen playthrough_file_slots(title):
 
                                                     vbox:
                                                         align (0.5, 0.5)
-                                                        spacing 10
+                                                        spacing layoutseparator
                                                         xfill True
 
                                                         # Save name
@@ -618,7 +629,7 @@ screen playthrough_file_slots(title):
                                                             #    - [EDIT:] Restructuring the button using 'side:' may help. That 'ymaximum' probably doesn't help, either
                                                             #       - [EDIT:] There is an attempt at this commented out, below...
                                                             #          - This issue is still present despite the above, *and* Oscar's reworking. It's listed as an Issue on GitHub
-                                                            edgescroll (100, 500) #mousewheel "horizontal-change"
+                                                            edgescroll (100, 500)
                                                             xfill False
                                                             align (0.5, 0.5)
 
@@ -644,6 +655,7 @@ screen playthrough_file_slots(title):
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                        focus_mask True
                                                                     else:
                                                                         padding (4, 4)
                                                                     action Show("save_input", slot=slot)
@@ -655,6 +667,7 @@ screen playthrough_file_slots(title):
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                        focus_mask True
                                                                     else:
                                                                         padding (4, 4)
                                                                     action Function(slot.toggle_lock)
@@ -666,6 +679,7 @@ screen playthrough_file_slots(title):
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                        focus_mask True
                                                                     else:
                                                                         padding (4, 4)
                                                                     action Function(slot.toggle_lock)
@@ -677,6 +691,7 @@ screen playthrough_file_slots(title):
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
+                                                                        focus_mask True
                                                                     else:
                                                                         padding (4, 4)
                                                                     action FileDelete(slot.file_name, slot=True)
