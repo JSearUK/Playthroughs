@@ -13,7 +13,7 @@ define enable_versioning = True # Warns players if save is out of date, OR from 
 define enable_renaming = True # Allow players to edit their playthrough and save names
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
-define enable_animation = False # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
+define enable_animation = True # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
 define layoutseparator = 5 # The spacing between UI elements of the Playthrough save screen
 init python: # Initialising variables in an 'init python' block is equivalent to defining them; thus the value of 'slotforeground' is considered constant and not saved/tracked by rollback
     try:
@@ -356,7 +356,7 @@ screen playthrough_file_slots(title):
                         xalign 0.5
                         xoffset -round((gui.scrollbar_size + layoutseparator) / 2)
 
-                    null height 5
+                    null height layoutseparator
 
                     # Display top panel, which contains 1-4 buttons
                     hbox:
@@ -405,7 +405,7 @@ screen playthrough_file_slots(title):
                                         at HoverSpin
                                 action Show("playthrough_input")
 
-                    null height 5
+                    null height layoutseparator
 
                     # Vertically-scrolling viewport for the list of Playthroughs
                     viewport:
@@ -467,13 +467,14 @@ screen playthrough_file_slots(title):
                         color gui.interface_text_color
                         size gui.label_text_size
 
-                    null height 5
+                    null height layoutseparator
 
-                    # Provide (or not) buttons that alter the key that the slotslist is sorted on
+                    # Display all the fileslots that are in the playthrough being viewed. If no playthrough is being viewed, display nothing
                     if persistent.current_playthrough:
                         hbox:
                             ysize yvalue
 
+                            # Provide (or not) buttons that alter the key that the slotslist is sorted on
                             if enable_sorting:
                                 textbutton " Recent ":
                                     tooltip "Sort slots by most recently changed first"
@@ -493,7 +494,7 @@ screen playthrough_file_slots(title):
                                     text_selected_color gui.hover_color
                                     action [SetField(persistent, "sortby", "slot_num")]
 
-                        null height 5
+                        null height layoutseparator
 
                         # Vertically-scrolling viewport for the slotslist
                         viewport:
@@ -503,9 +504,23 @@ screen playthrough_file_slots(title):
 
                             vbox:
                                 spacing layoutseparator
-                                # Display all the fileslots that are in the playthrough being viewed. If no playthrough is being viewed, display nothing
+
+                                if title == "Save":
+                                    # Only produce the button if we're on the Save screen
+                                    # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code (this might no longer be true)
+                                    textbutton "+ New Save +":
+                                        # TODO: This needs a tooltip, which means it needs a name -
+                                        # - logically, this is "{} {}".format(persistent.current_playthrough.name, persistent.current_playthrough.slot_num), which means it needs a slot number -
+                                        # - which could conceivably be wanted in *any* empty slot, not just the len(self.slots)+1 position (which doesn't account for gaps through deletion, anyway)
+                                        xysize (1.0, config.thumbnail_height)
+                                        background slotbackground
+                                        hover_foreground slotforeground
+                                        action Show("save_input", playthrough=persistent.current_playthrough)
+                                        text_align (0.5, 0.5)
+
                                 # For each slot in the Playthrough...
                                 for slot in persistent.current_playthrough.sorted_slots:
+                                    # It seems to me that this whole conditional is almost identical to the `# Thumbnail` section below, and could be merged in there?
                                     if slot.version > config.version and enable_versioning:
                                         fixed:
                                             xysize (1.0, config.thumbnail_height)
@@ -522,16 +537,24 @@ screen playthrough_file_slots(title):
                                                 fixed:
                                                     xysize (1.0, 1.0)
 
-                                                    vbox:
+                                                    viewport:
                                                         align (0.5, 0.5)
+                                                        edgescroll (100, 500)
+                                                        xfill False
 
-                                                        text "- Newer Save -":
-                                                            xalign 0.5
-                                                            color gui.insensitive_color
+                                                        vbox:
+                                                            align (0.5, 0.5)
+                                                            spacing 10
 
-                                                        text "Version: [slot.version]":
-                                                            xalign 0.5
-                                                            color gui.insensitive_color
+                                                            text "- Newer Save -":
+                                                                align (0.5, 0.5)
+                                                                layout "nobreak"
+                                                                color gui.insensitive_color
+
+                                                            text "Version: [slot.version]":
+                                                                align (0.5, 0.5)
+                                                                layout "nobreak"
+                                                                color gui.insensitive_color
 
                                     else:
                                         button:
@@ -590,9 +613,11 @@ screen playthrough_file_slots(title):
                                                             # TODO: Why the **** do we occasionally wind up with a weird scrollbar?!? o7
                                                             # - [EDIT:] To reproduce this: screen size of 1920x1080, text size 33 and an 'editablename' of "James and the Giant Peach by R Dahl"
                                                             #           - or a text size of 66 and a Playthrough name of "Test", then hit the '+ New Save +' button
+                                                            #    - [EDIT:] This issue appears to be resolved for normal text. However:
                                                             # - [EDIT:] Adding the HoverSpin transform to the icons has also made all of the buttons gain the weird scrollbar...
                                                             #    - [EDIT:] Restructuring the button using 'side:' may help. That 'ymaximum' probably doesn't help, either
                                                             #       - [EDIT:] There is an attempt at this commented out, below...
+                                                            #          - This issue is still present despite the above, *and* Oscar's reworking. It's listed as an Issue on GitHub
                                                             edgescroll (100, 500) #mousewheel "horizontal-change"
                                                             xfill False
                                                             align (0.5, 0.5)
@@ -656,18 +681,6 @@ screen playthrough_file_slots(title):
                                                                         padding (4, 4)
                                                                     action FileDelete(slot.file_name, slot=True)
 
-                                if title == "Save":
-                                    # Only produce the button if we're on the Save screen
-                                    # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code (this might no longer be true)
-                                    textbutton "+ New Save +":
-                                        # TODO: This needs a tooltip, which means it needs a name -
-                                        # - logically, this is "{} {}".format(persistent.current_playthrough.name, persistent.current_playthrough.slot_num), which means it needs a slot number -
-                                        # - which could conceivably be wanted in *any* empty slot, not just the len(self.slots)+1 position (which doesn't account for gaps through deletion, anyway)
-                                        xysize (1.0, config.thumbnail_height)
-                                        background slotbackground
-                                        hover_foreground slotforeground
-                                        action Show("save_input", playthrough=persistent.current_playthrough)
-                                        text_align (0.5, 0.5)
 
 # [ ADDITIONAL SCREENS ]
 screen playthrough_input(playthrough=None):
