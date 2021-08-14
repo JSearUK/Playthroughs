@@ -13,7 +13,7 @@ define enable_versioning = True # Warns players if save is out of date, OR from 
 define enable_renaming = True # Allow players to edit their playthrough and save names
 define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
 define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
-define enable_animation = False # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
+define enable_animation = True # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
 define layoutseparator = 5 # The spacing between UI elements of the Playthrough save screen
 init python: # Initialising variables in an 'init python' block is equivalent to defining them; thus the value of 'slotforeground' is considered constant and not saved/tracked by rollback
     try:
@@ -334,19 +334,20 @@ screen playthrough_file_slots(title):
         style_prefix "fileslots"
 
         side "t c":
-            hbox:
+            viewport:
+                xfill False
+                align (1.0, 0.0)
                 ysize int(gui.text_size * 1.5)
-                at right
+                xmaximum 1.0
+                xoffset -(gui.scrollbar_size + (layoutseparator * 2))
 
                 # Collect and display any active tooltip on this page
                 $ help = GetTooltip()
                 if help:
                     text help:
                         style "fileslots_input"
+                        layout "nobreak"
                         italic True
-                        yalign 0.0
-                        xoffset -(gui.scrollbar_size + layoutseparator)
-                        size gui.text_size
 
             # Two panels, side-by-side in an hbox: Playthroughs and Slots
             hbox:
