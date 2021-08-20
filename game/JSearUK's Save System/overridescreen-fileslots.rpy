@@ -1,21 +1,34 @@
 define config.developer = True
 
 # [ INITIALISATION - BEST TO LEAVE ALONE ]
-default persistent.save_system = "original"
-default persistent.sortby = "last_modified"
-default persistent.playthroughs = []
+default persistent.save_system         = "original"
+default persistent.sortby              = "last_modified"
+default persistent.playthroughs        = []
 default persistent.current_playthrough = None
-default slotbackground = None #Solid("000000CF") # This is what is shown behind each slot, can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default). Can be changed e.g. per screen
 
 
 # [ CONFIG VARIABLES ]
 define enable_versioning = True # Warns players if save is out of date, OR from an even newer version of the game
-define enable_renaming = True # Allow players to edit their playthrough and save names
-define enable_locking = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
-define enable_sorting = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
-define enable_animation = True # Determines the hover behaviour of the UI. Current status: Works fine, but produces an unscrollable scrollbar if inside a self-sizing viewport
-define layoutseparator = 5 # The spacing between UI elements of the Playthrough save screen
-init python: # Initialising variables in an 'init python' block is equivalent to defining them; thus the value of 'slotforeground' is considered constant and not saved/tracked by rollback
+define enable_renaming   = True # Allow players to edit their playthrough and save names
+define enable_locking    = True # Allows players to lock and unlock saves. Locked saves cannot be renamed, overwritten or deleted.
+define enable_sorting    = True # Allows the player to sort their playthrough saves by a specific key, "last_modified" and "slot_num" are added. More may follow in future.
+define enable_animation  = True # Determines the hover behaviour of the UI - icons are highlighted if False, animated if True
+define layoutseparator   = 5    # The spacing between UI elements of the Playthrough save screen
+
+
+# [ IMAGES/DISPLAYABLES ]
+default slotbackground = None #Solid("000000CF") # This is what is shown behind each slot, can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default). Can be changed e.g. per screen
+# According to the documentation (https://www.renpy.org/doc/html/displaying_images.html#image-statement), there is a distinction between image statements inside and not inside an init block:
+# "When not contained inside an init block, image statements are run as if they were placed inside an init block of priority 500." I figured 0 was better than 500, so I put it in one /shrug
+init:
+    image icon_viewplaythroughs = Transform("JSearUK's Save System/gui/playthroughview.png", size=(30, 30))
+    image icon_viewrenpypages   = Transform("JSearUK's Save System/gui/renpyview.png", size=(30, 30))
+    image icon_newplaythrough   = Transform("JSearUK's Save System/gui/newplaythrough.png", size=(30, 30))
+    image icon_delete           = Transform("JSearUK's Save System/gui/delete.png", size=(30, 30))
+    image icon_rename           = Transform("JSearUK's Save System/gui/rename.png", size=(30, 30))
+    image icon_locked           = Transform("JSearUK's Save System/gui/locked.png", size=(30, 30))
+    image icon_unlocked         = Transform("JSearUK's Save System/gui/unlocked.png", size=(30, 30))
+init python:
     try:
         ColorizeMatrix # Test for the existence of 'ColorizeMatrix', without running it
     except NameError:
@@ -133,6 +146,7 @@ python early:
     def add_save_json_data(file):
         file["locked_status"] = "UNLOCKED"
 
+
 # [ FUNCTIONS ]
 init -1 python:
     def generate_playthroughs_from_saves():
@@ -150,6 +164,7 @@ init -1 python:
 
             playthrough = Playthrough(name=playthrough_name)
 
+    # TODO: I believe this can now be removed
     def ReflectSlotChanges():
         # This accesses 'slotdetails' as a list of slot details, then checks that the original file exists; if so, it builds a new filename, renames it, then updates the data in 'viewingpt'
         # - [EDIT:] No need to update the data in 'viewingpt', nor to reload it. Apparently, even this data is adjusted through the magic of Ren'Py's python abstraction /shrug Cheers, PyTom!
@@ -163,6 +178,7 @@ init -1 python:
             renpy.rename_save(slotdetails[0], newfilename)
         slotdetails = []
 
+    # TODO: I believe this can now be removed
     def AwaitUserInput():
         # This is an all-purpose function that is called whenever user-input is required to progress with an Action list; it defers the changes to be made until there is actually an input
         # - NOTE: I don't know how to make an action list wait for input and then resume; this is a workaround that calls this function once per screen update... I think
@@ -184,6 +200,7 @@ init -1 python:
 init 1 python:
     generate_playthroughs_from_saves()
     config.save_json_callbacks.append(add_save_json_data)
+
 
 # [ STYLING ]
 style fileslots:
@@ -209,7 +226,7 @@ style fileslots_vscrollbar:
 # [ TRANSFORMS ]
 # Until 7.4.9 is released, it is necessary to handle both normal and selected states, because this is usually applied to a button
 transform HoverSpin:
-    #rotate_pad True       # - [EDIT:] This doesn't seem to make any difference, either because the image is square or because the background is transparent. So no need for further computation
+    rotate_pad True       # - [EDIT:] This doesn't seem to make any difference, either because the image is square or because the background is transparent. So no need for further computation
     on selected_hover, hover:
         linear 1.0 rotate 359
         rotate 0
@@ -234,11 +251,13 @@ screen original_file_slots(title):
         fixed:
             imagebutton:
                 action SetVariable("persistent.save_system", "playthrough")
-                idle "JSearUK's Save System/gui/playthroughview.png"
+                idle "icon_viewplaythroughs"
                 tooltip "Switch to the Playthrough system"
                 hover_background (None if enable_animation else Solid(gui.text_color))
                 if enable_animation:
                     at HoverSpin
+                else:
+                    padding (4, 4)
 
             ## This ensures the input will get the enter event before any of the
             ## buttons do.
@@ -311,6 +330,9 @@ screen original_file_slots(title):
                 if config.has_quicksave:
                     textbutton _("{#quick_page}Q") action FilePage("quick") tooltip "View Quicksaves"
 
+                # NOTE: No longer sure I want to mess with this. Not sure I *don't* want to mess with this, either
+                # NOTE: There is also the consideration that some devs will have customised this screen - possibly with a whole-GUI replacement theme
+                # TODO: Investigate and make a decision
                 python:
                     try:
                         lower_range = max(1, int(persistent._file_page) - 8)
@@ -377,7 +399,7 @@ screen playthrough_file_slots(title):
                             xysize (yvalue, yvalue)
                             focus_mask True
                             hover_background (None if enable_animation else Solid(gui.text_color))
-                            text "{image=JSearUK's Save System/gui/renpyview.png}":
+                            text "{image=icon_viewrenpypages}":
                                 align (0.5, 0.5)
                                 if enable_animation:
                                     at HoverSpin
@@ -408,7 +430,7 @@ screen playthrough_file_slots(title):
                                 xysize (yvalue, yvalue)
                                 focus_mask True
                                 hover_background (None if enable_animation else Solid(gui.text_color))
-                                text "{image=JSearUK's Save System/gui/newplaythrough.png}":
+                                text "{image=icon_newplaythrough}":
                                     align (0.5, 0.5)
                                     if enable_animation:
                                         at HoverSpin
@@ -437,7 +459,7 @@ screen playthrough_file_slots(title):
                                             tooltip "Rename the \"{}\" Playthrough".format(playthrough.name)
                                             focus_mask True
                                             hover_background (None if enable_animation else Solid(gui.text_color))
-                                            text "{image=JSearUK's Save System/gui/rename.png}":
+                                            text "{image=icon_rename}":
                                                 align (0.5, 0.5)
                                                 if enable_animation:
                                                     at HoverSpin
@@ -464,7 +486,7 @@ screen playthrough_file_slots(title):
                                             tooltip "Delete the \"{}\" Playthrough".format(playthrough.name)
                                             focus_mask True
                                             hover_background (None if enable_animation else Solid(gui.text_color))
-                                            text "{image=JSearUK's Save System/gui/delete.png}":
+                                            text "{image=icon_delete}":
                                                 align (0.5, 0.5)
                                                 if enable_animation:
                                                     at HoverSpin
@@ -620,16 +642,8 @@ screen playthrough_file_slots(title):
                                                         xfill True
 
                                                         # Save name
+                                                        # Putting the slotname in its own viewport helps us to handle 'editablename's that exceed the space they're given without breaking the layout
                                                         viewport:
-                                                            # Putting the slotname in its own box helps us to handle 'editablename's that exceed the space they're given without breaking the layout
-                                                            # TODO: Why the **** do we occasionally wind up with a weird scrollbar?!? o7
-                                                            # - [EDIT:] To reproduce this: screen size of 1920x1080, text size 33 and an 'editablename' of "James and the Giant Peach by R Dahl"
-                                                            #           - or a text size of 66 and a Playthrough name of "Test", then hit the '+ New Save +' button
-                                                            #    - [EDIT:] This issue appears to be resolved for normal text. However:
-                                                            # - [EDIT:] Adding the HoverSpin transform to the icons has also made all of the buttons gain the weird scrollbar...
-                                                            #    - [EDIT:] Restructuring the button using 'side:' may help. That 'ymaximum' probably doesn't help, either
-                                                            #       - [EDIT:] There is an attempt at this commented out, below...
-                                                            #          - This issue is still present despite the above, *and* Oscar's reworking. It's listed as an Issue on GitHub
                                                             edgescroll (100, 500)
                                                             xfill False
                                                             align (0.5, 0.5)
@@ -647,12 +661,14 @@ screen playthrough_file_slots(title):
                                                         # Icon buttons
                                                         hbox:
                                                             xalign 0.5
+                                                            if enable_animation:
+                                                                ysize 43 # Explicitly setting the height to the hypotenuse of 30x30 dodges a scrollbar bug (https://github.com/renpy/renpy/issues/2987)
 
                                                             # NOTE: "auto/quick" have empty strings for 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
                                                             if enable_renaming and slot.locked_status == "UNLOCKED":
                                                                 imagebutton:
-                                                                    idle "JSearUK's Save System/gui/rename.png"
                                                                     tooltip "Rename {}".format(slot.name)
+                                                                    idle "icon_rename"
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
@@ -663,8 +679,8 @@ screen playthrough_file_slots(title):
 
                                                             if enable_locking and slot.locked_status == "LOCKED":
                                                                 imagebutton:
-                                                                    idle "JSearUK's Save System/gui/locked.png"
                                                                     tooltip "Unlock {}".format(slot.name)
+                                                                    idle "icon_locked"
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
@@ -675,8 +691,8 @@ screen playthrough_file_slots(title):
 
                                                             elif enable_locking and slot.locked_status == "UNLOCKED":
                                                                 imagebutton:
-                                                                    idle "JSearUK's Save System/gui/unlocked.png"
                                                                     tooltip "Lock {}".format(slot.name)
+                                                                    idle "icon_unlocked"
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
@@ -688,7 +704,7 @@ screen playthrough_file_slots(title):
                                                             if enable_locking == False or (enable_locking and slot.locked_status != "LOCKED"):
                                                                 imagebutton:
                                                                     tooltip "Delete {}".format(slot.name)
-                                                                    idle "JSearUK's Save System/gui/delete.png"
+                                                                    idle "icon_delete"
                                                                     hover_background (None if enable_animation else Solid(gui.text_color))
                                                                     if enable_animation:
                                                                         at HoverSpin
