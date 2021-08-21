@@ -226,7 +226,7 @@ style fileslots_vscrollbar:
 # [ TRANSFORMS ]
 # Until 7.4.9 is released, it is necessary to handle both normal and selected states, because this is usually applied to a button
 transform HoverSpin:
-    rotate_pad True       # - [EDIT:] This doesn't seem to make any difference, either because the image is square or because the background is transparent. So no need for further computation
+    subpixel True   # This line works shiny smoothing magic!
     on selected_hover, hover:
         linear 1.0 rotate 359
         rotate 0
