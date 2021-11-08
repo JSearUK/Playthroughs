@@ -4,7 +4,6 @@ define config.developer = True
 default persistent.save_system = "original"
 default persistent.sortby = "lastmodified"
 default persistent.playthroughslist = []
-#default lastpage = None # This is code residue from when I was meddling with the Ren'Py pages system, which has now been reverted to almost normal
 default viewingptname = ""
 default viewingpt = []
 default userinput = ""
@@ -49,7 +48,7 @@ define slotheight = config.thumbnail_height
 # [ IMAGES/DISPLAYABLES ]
 define pathoffset = "Mods/Playthroughs/"
 init python:
-    textsize = 48 if renpy.variant("small") else gui.text_size
+    textsize = 52 if renpy.variant("small") else gui.text_size
     # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed
     yvalue = 32 if textsize < 22 else int(textsize * 1.5)
     # Some 'ysize's in this project are set to 'yvalue', if 'gui.text_size' is significantly smaller than the icon height (30px + 1px border). This helps to line up various edges
@@ -299,11 +298,6 @@ transform HoverSpin:
     on idle:
         rotate 0
 
-
-# if renpy.variant("mobile"):
-#     image playthroughview_define = Transform("gui/playthroughview.png", size=(90, 90))
-# else:
-#     image playthroughview_define = Transform("gui/playthroughview.png", size=(30, 30))
 
 # [ SCREENS ]
 # The original save/load system screen, modified by OscarSix to simply be a wrapper for either of the screens used, below:
@@ -770,7 +764,7 @@ screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
 # - bground       : [optional] : Passed to screen queryframe() - a Displayable for the background property of the largest non-transparent Frame(), which will be scaled to fit
 # - styleprefix   : [optional] : a string containing the style_prefix to apply to the whole box, including any children
 # - tcolor        : [optional] : a Color object (e.g. "#F00") for the text in the input field. This will override the default/specified styling
-screen querystring(query="Hmm?", preload="", excludes="[{", invalid=[], maxcharlen=None, maxpixelwidth=None, variable=None, container=(0, 0, 1900, 300) if renpy.variant("small") else (0, 0, config.screen_width, config.screen_height), bground=None, styleprefix=None, tcolor=None):
+screen querystring(query="Hmm?", preload="", excludes="[{", invalid=[], maxcharlen=None, maxpixelwidth=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("small") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
     style_prefix styleprefix
     if variable is None:
         $ raise Exception("Invalid argument - screen querystring([required] variable=\"variable_name\"):")
@@ -806,7 +800,7 @@ screen querystring(query="Hmm?", preload="", excludes="[{", invalid=[], maxcharl
 # - styleprefix   : [optional] : a string containing the style_prefix to apply to the whole box, including any children
 # - tcolor        : [optional] : a Color object (e.g. "#F00") for the text in the input field. This will override the default/specified styling
 # NOTE: This is a cut-down version of a screen in another project, since this version is not required to handle floats or negative numbers
-screen querynumber(query="Hmm?", preload="", minval=None, maxval=None, variable=None, container=(0, 0, 1900, 300) if renpy.variant("small") else (0, 0, config.screen_width, config.screen_height), bground=None, styleprefix=None, tcolor=None):
+screen querynumber(query="Hmm?", preload="", minval=None, maxval=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("small") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
     style_prefix styleprefix
     if variable is None:
         $ raise Exception("Invalid argument - screen querystring([required] variable=\"variable_name\"):")
