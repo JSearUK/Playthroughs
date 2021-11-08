@@ -16,3 +16,9 @@ License: This code is free to use.
 
 However, you are warned that - in it's current state - it may not behave itself;
 I do not yet consider it fit for purpose.
+
+---
+
+## [ FEATURES ]
+- To be finalised
+- Also serves as a QA checklist
