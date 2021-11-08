@@ -12,24 +12,6 @@ The current state of the project is: Working - not yet optimised for Best Practi
 
 ---
 
-There are a few custom images in the /gui folder, and some saves for demonstration purposes in the /saves folder
-
-Those saves will not show up until you create Playthroughs with the relevant names:
-
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-
-HGFEDCBA9876543210123456789ABCDEFGH
-
-Roald Dahl
-
-Sear
-
-James
-
-For Renaming
-
----
-
 License: This code is free to use.
 
 However, you are warned that - in it's current state - it may not behave itself;
