@@ -25,11 +25,12 @@ define enable_versioning = True
 define enable_renaming = True
     # This enables the player to provide/edit a friendly name for any existing Playthrough save
     # TODO: For Ren'Py saves (excluding Auto/Quick), it shows an overlay/button on the slot that can be clicked on to provide a name for the new/overwritten slot
+    # - [EDIT:] This is on hold, for now
 define enable_locking = True
     # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, overwritten or deleted in-game
     # TODO: Check that this still works as intended with files that are locked when 'enable_locking' is False
     # - [EDIT:] If there are locked files present when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved
-        # TODO: Decide if this behaviour is correct, or needs amending
+    #   - TODO: Decide if this behaviour is correct, or needs amending - [EDIT:] This behaviour is correct.
 define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified" and "slotnumber" by default; "versionnumber" and "lockedstatus" may also be of use
 define enable_animation = False
@@ -38,6 +39,8 @@ define enable_animation = False
 # [ INITIALISATION - UI ]
 define layoutseparator = 5
     # The spacing between UI elements of the Playthrough save screen
+define smallscreentextsize = 52
+    # Hardcoded minimum text size for small screen devices such as smartphones
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define insensitivecolor = gui.insensitive_color
@@ -48,13 +51,16 @@ define slotheight = config.thumbnail_height
 # [ IMAGES/DISPLAYABLES ]
 define pathoffset = "Mods/Playthroughs/"
 init python:
-    textsize = 52 if renpy.variant("small") else gui.text_size
+    textsize = max(min(gui.text_size, 80), 20)
+        # Clamp text size to sensible values
+    if renpy.variant("small") and textsize < smallscreentextsize:
+        textsize = smallscreentextsize
+        # Enlarge text size if necessary because player is using a small screen
+    iconsize = (textsize, textsize)
+        # This matches the icon sizes to the text size
     # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed
-    yvalue = 32 if textsize < 22 else int(textsize * 1.5)
-    # Some 'ysize's in this project are set to 'yvalue', if 'gui.text_size' is significantly smaller than the icon height (30px + 1px border). This helps to line up various edges
-    iconsize = (30, 30) if textsize < 22 else (textsize, textsize)
-    # This matches the icon sizes to the text size
-    # - NOTE: This is different from yvalue, which standardizes the containers of text and icons. This also assumes that gui.text_size is in pixels, which is not always true
+    yvalue = int(textsize * 1.5)
+        # yvalue is used to line up the edges of various UI elements, primarily buttons which need extra space around the text to look good
     try:
         ColorizeMatrix
         # Test for the existence of 'ColorizeMatrix', without running it
