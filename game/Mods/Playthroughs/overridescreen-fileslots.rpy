@@ -53,12 +53,12 @@ define pathoffset = "Mods/Playthroughs/"
 init python:
     textsize = max(min(gui.text_size, 80), 20)
         # Clamp text size to sensible values
+        # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed
     if renpy.variant("small") and textsize < smallscreentextsize:
         textsize = smallscreentextsize
         # Enlarge text size if necessary because player is using a small screen
     iconsize = (textsize, textsize)
         # This matches the icon sizes to the text size
-    # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed
     yvalue = int(textsize * 1.5)
         # yvalue is used to line up the edges of various UI elements, primarily buttons which need extra space around the text to look good
     try:
@@ -273,6 +273,17 @@ init -1 python:
             userinput, targetaction, = "", ""
 
 
+# [ TRANSFORMS ]
+transform HoverSpin:
+    subpixel True
+    on hover:
+        linear 1.0 rotate 359
+        rotate 0
+        repeat
+    on idle:
+        rotate 0
+
+
 # [ STYLING ]
 style fileslots:
     margin (0, 0)
@@ -293,21 +304,17 @@ style fileslots_viewport is fileslots:
     xfill True
 style fileslots_vscrollbar:
     unscrollable "hide"
-
-# [ TRANSFORMS ]
-transform HoverSpin:
-    subpixel True
-    on hover:
-        linear 1.0 rotate 359
-        rotate 0
-        repeat
-    on idle:
-        rotate 0
+style iconbutton is fileslots:
+    xysize (yvalue, yvalue)
+    focus_mask True
+    hover_background (None if enable_animation else Solid(textcolor))
+    text_align (0.5, 0.5)
 
 
 # [ SCREENS ]
 # The original save/load system screen, modified by OscarSix to simply be a wrapper for either of the screens used, below:
 screen file_slots(title):
+    style_prefix "fileslots"
     if persistent.save_system == "original":
         use original_file_slots(title=title)
     elif persistent.save_system == "playthrough":
@@ -322,14 +329,9 @@ screen original_file_slots(title):
         fixed:
             # Provide a button to switch to the original save system
             button:
+                style "iconbutton"
                 tooltip "Switch to the Playthrough system"
-                xysize (yvalue, yvalue)
-                focus_mask True
-                hover_background (None if enable_animation else Solid(textcolor))
-                text "{image=icon_viewplaythroughs}":
-                    align (0.5, 0.5)
-                    if enable_animation:
-                        at HoverSpin
+                text "{image=icon_viewplaythroughs}" at (HoverSpin if enable_animation else None)
                 action SetVariable("persistent.save_system", "playthrough")
             ## This ensures the input will get the enter event before any of the buttons do.
             order_reverse True
