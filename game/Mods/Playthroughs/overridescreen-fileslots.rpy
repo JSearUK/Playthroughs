@@ -43,6 +43,7 @@ define smallscreentextsize = 52
     # Hardcoded minimum text size for small screen devices such as smartphones
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
+define focuscolor = "#FFF"
 define insensitivecolor = gui.insensitive_color
 define interfacecolor = gui.interface_text_color
 define slotheight = config.thumbnail_height
@@ -53,7 +54,7 @@ define pathoffset = "Mods/Playthroughs/"
 init python:
     textsize = max(min(gui.text_size, 80), 20)
         # Clamp text size to sensible values
-        # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed
+        # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed - probably inside a screen
     if renpy.variant("small") and textsize < smallscreentextsize:
         textsize = smallscreentextsize
         # Enlarge text size if necessary because player is using a small screen
@@ -91,7 +92,7 @@ define config.has_quicksave = True
 
 
 # [ CLASSES ]
-# TODO: These will need docstrings, apparently
+# TODO: These will need docstrings, apparently?
 init python:
     # Reference: (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
     class Playthrough:
@@ -297,23 +298,24 @@ style fileslots_text:
 style fileslots_button_text is fileslots_text:
     hover_color hovercolor
     insensitive_color insensitivecolor
-style fileslots_input is fileslots_text:
-    # I use pure white as a color for "text focus"; contextual information or input that the user should pay attention to. Ofc, if the dev is using white everywhere, this won't be as effective /shrug
-    color "#FFF"
+style fileslots_focus is fileslots_text:
+    color focuscolor
 style fileslots_viewport is fileslots:
     xfill True
 style fileslots_vscrollbar:
     unscrollable "hide"
-style iconbutton is fileslots:
+style icon_button is fileslots:
     xysize (yvalue, yvalue)
     focus_mask True
     hover_background (None if enable_animation else Solid(textcolor))
-    text_align (0.5, 0.5)
+style icon_text is fileslots:
+    align (0.5, 0.5)
 
 
 # [ SCREENS ]
 # The original save/load system screen, modified by OscarSix to simply be a wrapper for either of the screens used, below:
 screen file_slots(title):
+    # TODO: Metrics may need to be tested for and adjusted here, in case people have altered the text size via Preferences or Accessibility
     style_prefix "fileslots"
     if persistent.save_system == "original":
         use original_file_slots(title=title)
@@ -329,7 +331,7 @@ screen original_file_slots(title):
         fixed:
             # Provide a button to switch to the original save system
             button:
-                style "iconbutton"
+                style_prefix "icon"
                 tooltip "Switch to the Playthrough system"
                 text "{image=icon_viewplaythroughs}" at (HoverSpin if enable_animation else None)
                 action SetVariable("persistent.save_system", "playthrough")
@@ -364,7 +366,7 @@ screen original_file_slots(title):
             # Collect and display any active tooltip on this page
             $ help = GetTooltip()
             if help:
-                text help style "fileslots_input" italic True size gui.interface_text_size xalign 0.5 yalign 0.9
+                text help style "fileslots_focus" italic True size gui.interface_text_size xalign 0.5 yalign 0.9
             ## Buttons to access other pages.
             hbox:
                 style_prefix "page"
@@ -409,7 +411,7 @@ screen playthrough_file_slots(title):
                 $ help = GetTooltip()
                 if help:
                     text help:
-                        style "fileslots_input"
+                        style "fileslots_focus"
                         layout "nobreak"
                         italic True
             # Two panels, side-by-side in an hbox: Playthroughs and Slots
@@ -432,14 +434,9 @@ screen playthrough_file_slots(title):
                         xoffset -round((gui.scrollbar_size + layoutseparator) / 2)
                         # Provide a button to switch to the original save system
                         button:
+                            style_prefix "icon"
                             tooltip "Switch to the Ren'Py [title] system"
-                            xysize (yvalue, yvalue)
-                            focus_mask True
-                            hover_background (None if enable_animation else Solid(textcolor))
-                            text "{image=icon_viewrenpypages}":
-                                align (0.5, 0.5)
-                                if enable_animation:
-                                    at HoverSpin
+                            text "{image=icon_viewrenpypages}" at (HoverSpin if enable_animation else None)
                             action SetField(persistent, "save_system", "original")
                         if config.has_autosave:
                             textbutton  _("{#auto_page}A"):
@@ -462,16 +459,11 @@ screen playthrough_file_slots(title):
                         # If we're on the Save screen, provide a button to allow the creation of a new, uniquely-named, playthrough that is also not simply a number (Ren'Py Pages)
                         if title == "Save":
                             button:
+                                style_prefix "icon"
                                 tooltip "Create a new Playthrough"
-                                xysize (yvalue, yvalue)
-                                focus_mask True
-                                hover_background (None if enable_animation else Solid(textcolor))
-                                text "{image=icon_newplaythrough}":
-                                    align (0.5, 0.5)
-                                    if enable_animation:
-                                        at HoverSpin
+                                text "{image=icon_newplaythrough}" at (HoverSpin if enable_animation else None)
                                 action [SetVariable("targetaction", "newplaythroughname"),
-                                        Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
+                                        Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
                                         AwaitUserInput()]
                     null height layoutseparator
                     # Vertically-scrolling viewport for the list of Playthroughs
@@ -489,15 +481,11 @@ screen playthrough_file_slots(title):
                                         xysize (yvalue, yvalue)
                                         action None # Start with an empty button and no action, then populate it if it's the current playthrough AND the functionality has not been diasbled
                                         if enable_renaming and persistent.playthroughslist[i] == viewingptname:
+                                            style_prefix "icon"
                                             tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
-                                            focus_mask True
-                                            hover_background (None if enable_animation else Solid(textcolor))
-                                            text "{image=icon_rename}":
-                                                align (0.5, 0.5)
-                                                if enable_animation:
-                                                    at HoverSpin
+                                            text "{image=icon_rename}" at (HoverSpin if enable_animation else None)
                                             action [SetVariable("targetaction", "changeplaythroughname"),
-                                                    Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
+                                                    Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
                                                     AwaitUserInput()]
                                     # Playthrough selection button in the center
                                     button:
@@ -517,28 +505,46 @@ screen playthrough_file_slots(title):
                                     # Delete button at the right, if we're dealing with the selected playthrough
                                     button:
                                         xysize (yvalue, yvalue)
-                                        action None
+                                        action None # Begin blank, then populate if needed
                                         if persistent.playthroughslist[i] == viewingptname:
+                                            style_prefix "icon"
                                             tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
-                                            focus_mask True
-                                            hover_background (None if enable_animation else Solid(textcolor))
-                                            text "{image=icon_delete}":
-                                                align (0.5, 0.5)
-                                                if enable_animation:
-                                                    at HoverSpin
+                                            text "{image=icon_delete}" at (HoverSpin if enable_animation else None)
                                             action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
 #
-#                                # Test playthroughs for layout verification - WARNING: Needs updating to current layout
-#                                for i in range(1, 51, 1):
-#                                    button:
-#                                        tooltip "Show Slots in the \"{:02}\" Playthrough".format(i) xsize 1.0 ysize yvalue
-#                                        action NullAction()
-#                                        viewport:
-#                                            xfill False xmaximum 0.856 align (0.5, 0.5) mousewheel "horizontal-change" #edgescroll (50, 500)
-#                                            text "{:02}".format(i) align (0.5, 0.5) layout "nobreak" hover_color gui.hover_color
-#                                        hover_background Solid(gui.text_color, xsize=0.856, align=(0.5, 0.5), ysize=yvalue)
-#                                        textbutton "{image=gui/delete.png}" tooltip "Delete the \"{:02}\" Playthrough".format(i) align (0.0, 0.5) text_align (0.5, 0.5) text_anchor (16, 16) ysize yvalue hover_background Solid(gui.text_color) action NullAction()
-#                                        textbutton "{image=gui/rename.png}" tooltip "Rename the \"{:02}\" Playthrough".format(i) align (1.0, 0.5) text_align (0.5, 0.5) text_anchor (16, 16) ysize yvalue hover_background Solid(gui.text_color) action NullAction()
+                            # Test playthroughs for layout verification
+                            for i in range(1, 51, 1):
+                                side "l c r":
+                                    button:
+                                        xysize (yvalue, yvalue)
+                                        action None
+                                        if enable_renaming:
+                                            style_prefix "icon"
+                                            tooltip "Rename the \"{}\" Playthrough".format(i)
+                                            text "{image=icon_rename}" at (HoverSpin if enable_animation else None)
+                                            action NullAction()
+                                    button:
+                                        tooltip "Show Slots in the \"{}\" Playthrough".format(i)
+                                        xysize (1.0, yvalue)
+                                        selected_background Solid(textcolor)
+                                        viewport:
+                                            xfill False
+                                            align (0.5, 0.5)
+                                            edgescroll (50, 500)
+                                            text " {} ".format(i):
+                                                layout "nobreak"
+                                                hover_color hovercolor
+                                                selected_color hovercolor
+                                                color textcolor
+                                        action NullAction()
+                                    button:
+                                        xysize (yvalue, yvalue)
+                                        action None # Begin blank, then populate if needed
+                                        if True:
+                                            style_prefix "icon"
+                                            tooltip "Delete the \"{}\" Playthrough".format(i)
+                                            text "{image=icon_delete}" at (HoverSpin if enable_animation else None)
+                                            action NullAction()
 #
                 # Fileslots panel
                 vbox:
@@ -605,7 +611,7 @@ screen playthrough_file_slots(title):
                                                 background slotbackground
                                                 hover_foreground slotforeground
                                                 action [SetVariable("targetaction", "newslotnumber"),
-                                                        If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+interfacecolor+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots")),
+                                                        If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+interfacecolor+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor)),
                                                         AwaitUserInput()]
                                     # Disable any slot that has a version number higher than this app; loading will likely fail and overwriting will likely lose data
                                     # TODO: This doesn't actually need to be a button. It might or might not be simpler for it not to be.
@@ -651,12 +657,12 @@ screen playthrough_file_slots(title):
                                                             text "- Older Save -":
                                                                 xalign 0.5
                                                                 size gui.slot_button_text_size
-                                                                style "fileslots_input"
+                                                                style "fileslots_focus"
                                                             null height gui.slot_button_text_size
                                                             text "v{}".format(versionnumber):
                                                                 xalign 0.5
                                                                 size gui.slot_button_text_size
-                                                                style "fileslots_input"
+                                                                style "fileslots_focus"
                                                 null width layoutseparator
                                                 viewport:
                                                     scrollbars "vertical"
@@ -690,37 +696,28 @@ screen playthrough_file_slots(title):
                                                             # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
                                                             if enable_renaming and editablename and (enable_locking == False or (enable_locking and lockedstatus != "LOCKED")):
                                                                 button:
-                                                                    xysize (yvalue, yvalue)
+                                                                    style_prefix "icon"
+                                                                    focus_mask None
                                                                     tooltip "Rename {}".format(slotname)
-                                                                    hover_background (None if enable_animation else Solid(textcolor))
-                                                                    text "{image=icon_rename}":
-                                                                        align (0.5, 0.5)
-                                                                        if enable_animation:
-                                                                            at HoverSpin
+                                                                    text "{image=icon_rename}" at (HoverSpin if enable_animation else None)
                                                                     action [SetVariable("targetaction", "changeslotname"),
                                                                             SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, lockedstatus]),
-                                                                            Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots"),
+                                                                            Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
                                                                             AwaitUserInput()]
                                                             if enable_locking and lockedstatus:
                                                                 button:
-                                                                    xysize (yvalue, yvalue)
+                                                                    style_prefix "icon"
+                                                                    focus_mask None
                                                                     tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
-                                                                    hover_background (None if enable_animation else Solid(textcolor))
-                                                                    text "{}".format("{image=icon_locked}" if lockedstatus == "LOCKED" else "{image=icon_unlocked}"):
-                                                                        align (0.5, 0.5)
-                                                                        if enable_animation:
-                                                                            at HoverSpin
+                                                                    text "{}".format("{image=icon_locked}" if lockedstatus == "LOCKED" else "{image=icon_unlocked}") at (HoverSpin if enable_animation else None)
                                                                     action [SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED"]),
                                                                             ReflectSlotChanges]
                                                             if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                                                                 button:
-                                                                    xysize (yvalue, yvalue)
+                                                                    style_prefix "icon"
+                                                                    focus_mask None
                                                                     tooltip "Delete {}".format(slotname)
-                                                                    hover_background (None if enable_animation else Solid(textcolor))
-                                                                    text "{image=icon_delete}":
-                                                                        align (0.5, 0.5)
-                                                                        if enable_animation:
-                                                                            at HoverSpin
+                                                                    text "{image=icon_delete}" at (HoverSpin if enable_animation else None)
                                                                     action FileDelete(filename, slot=True)
 
 
