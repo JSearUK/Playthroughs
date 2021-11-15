@@ -4,17 +4,15 @@ define testplaythroughlistsize = False
     # TODO: The more buttons (and viewports?) onscreen, the more sluggish the UI gets. Attempt to optimise (especially for phones?)
 
 # [ NEXT TASKS ]
-# - Get the other Playthroughs into the Playthrough list on my local system
 # - Compact styling on Playthrough top buttons, Sort buttons, + New Playthrough + buttons - any similar textbutton. NOTE: Sizes can be overridden! :P
 # - Check Sort buttons display at max textsize and mobile textsize - consider lengthy languages such as German. Decide if Icons are better here
-# - Check versioning functionality and display
 # - Handle overlong tooltips elegantly
 # - Investigate how to play nicely with the Accessibilty screen, or people adjusting text size via Preferences
 # - Change icon files resolution to 128x128 px
-# - Consider Slotbutton redesign to accomodate mobile devices more easily
 # - Refactor slot numbers so that they may be infinite
-# - Get all mod variables into its own named store
+# - Consider Slotbutton redesign to accomodate mobile devices more easily - [EDIT:] This may fix the Roald Dahl bug. Remember to simplify, and to use 'side "":'
 # - Investigate and solve the '.isdecimal()' issue noted when dropping the mod into older games - [EDIT:] Oscar seemd to solve this by testing against 'not'
+# - Get all mod variables into its own named store
 
 # [ INITIALISATION - BEST TO LEAVE ALONE ]
 default persistent.save_system = "original"
@@ -44,11 +42,9 @@ define enable_renaming = True
     # - [EDIT:] This is on hold, for now
 define enable_locking = True
     # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, overwritten or deleted in-game
-    # TODO: Check that this still works as intended with files that are locked when 'enable_locking' is False
-    # - [EDIT:] If there are locked files present when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved
-    #   - TODO: Decide if this behaviour is correct, or needs amending - [EDIT:] This behaviour is correct.
+    # - NOTE: If there are locked files present when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved. This behaviour is correct.
 define enable_sorting = True
-    # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified" and "slotnumber" by default; "versionnumber" and "lockedstatus" may also be of use
+    # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified", "slotnumber", "versionnumber" and "lockedstatus" by default
 
 # [ INITIALISATION - UI ]
 define layoutseparator = 5
@@ -71,7 +67,7 @@ init python:
         # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed - probably inside a screen
     if renpy.variant("small") and textsize < smallscreentextsize:
         textsize = smallscreentextsize
-        # Enlarge text size if necessary because player is using a small screen
+        # Enlarge text size if player is using a small screen
     iconsize = (textsize, textsize)
         # This matches the icon sizes to the text size
     yvalue = int(textsize * 1.5)
@@ -616,7 +612,7 @@ screen playthrough_file_slots(title):
                         spacing layoutseparator # This separates the slots from the scrollbar
                         vbox:
                             spacing layoutseparator
-                            # xsize 1.0 # TODO: This seems unnecessary. Test. - [EDIT:] No problems removing. May affect edge cases? Probably not, though.
+                            #xsize 1.0 # TODO: This seems unnecessary. Test. - [EDIT:] No problems removing. May affect edge cases? Probably not, though. Doesn't fix Roald Dahl.
                             # Display all the fileslots that are in the playthrough being viewed, keyed off 'viewingptname'. If no playthrough is being viewed, display nothing
                             if viewingptname != "":
                                 # For each slot in the Playthrough...
@@ -645,7 +641,7 @@ screen playthrough_file_slots(title):
                                     # Disable any slot that has a version number higher than this app; loading will likely fail and overwriting will likely lose data
                                     # TODO: This doesn't actually need to be a button. It might or might not be simpler for it not to be.
                                     # - NOTE: In theory, 'versionnumber' could be type int. However, that should only happen if 'filename' == "+ New Save +" - which is already handled, above
-                                    #   - TODO: I'd be happier if we weren't using variables for more than one purpose. Look into restructuring `slot`
+                                    #   - TODO: I'd be happier if we weren't using variables for more than one purpose. Look into restructuring 'slot'
                                     elif versionnumber.lower() > config.version.lower():
                                         if enable_versioning:
                                             $ slottextcolor = insensitivecolor # TODO: "sensitive False" should already be taking care of this. Test removal
@@ -654,10 +650,11 @@ screen playthrough_file_slots(title):
                                                 xysize (1.0, slotheight)
                                                 text_align (0.5, 0.5)
                                                 background slotbackground
-                                                action NullAction() # TODO: ...? It's already insensitive... Test `None`
+                                                action NullAction() # TODO: ...? It's already insensitive... Test 'None'
                                     # Everything else should all be pre-existing disk files that need to be shown
                                     else:
                                         button:
+                                            # TODO: Setting up the inside of this button - all slot buttons - may help fix the Roald Dahl problem, and possibly make the UI faster/more elegant
                                             tooltip "{} {}".format("Load" if title == "Load" else "Overwrite", slotname)
                                             xysize (1.0, slotheight)
                                             background slotbackground
@@ -701,11 +698,11 @@ screen playthrough_file_slots(title):
                                                     ymaximum 0.99
                                                     vbox:
                                                         align (0.5, 0.5)
-                                                        xfill True
+                                                        xfill True # TODO: Check to see if this solves the Roald Dahl problem
                                                         viewport:
                                                             # Putting the slotname in its own box helps us to handle 'editablename's that exceed the space they're given without breaking the layout
                                                             edgescroll (100, 500) #mousewheel "horizontal-change"
-                                                            xfill False
+                                                            xfill False # TODO: Check to see if this solves the Roald Dahl problem
                                                             align (0.5, 0.5)
                                                             text "{}".format(slotname):
                                                                 color slottextcolor
