@@ -2,39 +2,48 @@
 define config.developer = True
 define testplaythroughlistsize = False
     # TODO: The more buttons (and viewports?) onscreen, the more sluggish the UI gets. Attempt to optimise (especially for phones?)
+        # NOTE: Removing the viewports from the Playthrough list didn't improve anything. It has to be the buttons... although: try turning prediction off for this screen?
+        # NOTE: It could also be us dipping in and out of AwaitUserInput() at 300+Hz, although I doubt it. Worth checking... somehow
+
 
 # [ NEXT TASKS ]
-# - Check Sort buttons display at max textsize and mobile textsize - consider lengthy languages such as German. Decide if Icons are better here
-#   - [EDIT:] Goes offscreen. Icons problematic. Maybe buttons go in edge-scrolling viewport. Tooltip transform might be applicable on hover. Mobile solution? :/
-# - Handle overlong tooltips elegantly
-#   - [EDIT:] Fen has a partial solution; check GitHub Issues
+# - BUG: When a versioned (old) slot has focus:
+#   - Tooltip says overwrite (no warning)
+#   - Clicking attempts an overwrite with no warning, produces a new save with the same name
+#   - Second attempt will produce a warning (not tested further to avoid obliterating test file)
 # - Investigate how to play nicely with the Accessibilty screen, or people adjusting text size via Preferences
-# - Change icon files resolution to 128x128 px
-# - Refactor slot numbers so that they may be infinite
+#   - [EDIT:] These are actual Preferences variables, and thus checkable
+# - Refactor slot numbers so that they may be infinite. At the same time, fix the bug that occurs if the dev has a "-" in the version number.
 # - Consider Slotbutton redesign to accomodate mobile devices more easily NOTE: This is becoming more and more of a priority.
 #   - [EDIT:] This may fix the Roald Dahl bug. Remember to simplify, and to use 'side "":'
 #   - [EDIT:] Check that the vscrollbar in the name viewport has no right-hand spacing if it's up against the edge of the slot
-# - Investigate and solve the '.isdecimal()' issue noted when dropping the mod into older games - [EDIT:] Oscar seemd to solve this by testing against 'not'
+# - Streamline and triple-check styles are behaving correctly
+# - Investigate and solve the '.isdecimal()' issue noted when dropping the package into older games - [EDIT:] Oscar seemd to solve this by testing against 'not'
 # - Get all mod variables into its own named store
+# - Adapt all user-viewable strings to support translation
+# - Write and test package against the feature list on GitHub
 
-# [ INITIALISATION - BEST TO LEAVE ALONE ]
-default persistent.save_system = "original"
-default persistent.sortby = "lastmodified"
-default persistent.playthroughslist = []
-default viewingptname = ""
-default viewingpt = []
-default userinput = ""
-default targetaction = ""
-default slotdetails = []
 
+# [ INITIALISATION - CORE - BEST TO LEAVE ALONE ]
 # When exiting the game menu, or after loading, clear the variables that store the details of the playthrough being viewed. Do this by re-assigning a custom transition to those events
 # - NOTE: The specified duration needs to be greater than zero for the function to be called. Any transition where a function can be specified may be used
 # - NOTE: These lines redefine existing defines. This is not best practice, but it does mean that we can keep all of the changes of this mod to one file, and avoid altering further screens
 # - NOTE: If this behaviour is not desired, simply comment out the two lines below
 define config.after_load_transition = Dissolve(1, time_warp=ResetPtVars)
 define config.exit_transition = Dissolve(1, time_warp=ResetPtVars)
+define pathoffset = "Mods/Playthroughs/"
+default persistent.save_system = "original"
+default persistent.sortby = "lastmodified"
+default persistent.playthroughslist = []
+    # TODO: Does this need to be persistent? This might be causing the cpickle fail after package deletion. We can always repopulate on run, which is probably safer anyway...
+default viewingptname = ""
+default viewingpt = []
+default userinput = ""
+default targetaction = ""
+default slotdetails = []
 
-# [ INITIALISATION - TOGGLES ]
+
+# [ INITIALISATION - BEHAVIOUR TOGGLES ]
 # NOTE: The four 'enable_' defines below will still perform their default behaviour if set to 'False' - but the player will either not see their effect, or not be able to alter it
 define enable_versioning = True
     # This simply warns the player if a *Playthrough* save is from an older version of the game, by graying out the thumbnail and writing details over the top of it
@@ -48,31 +57,44 @@ define enable_locking = True
     # - NOTE: If there are locked files present when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved. This behaviour is correct.
 define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified", "slotnumber", "versionnumber" and "lockedstatus" by default
+define enable_iconcolors = True
+    # This enables some glyphs to be color-coded. If False, all glyphs will be `textcolor`
+        # TODO: This may be better as a persistent toggle, possibly changed by this packages' Preferences screen
+
+
+# [ INITIALISATION - CONVENIENCE ]
+define config.has_autosave = True
+define config.has_quicksave = True
+    # These override existing config settings. They are here purely for dev convenience, and can be commented out if they are interfering with existing code
+
 
 # [ INITIALISATION - UI ]
 define layoutseparator = 5
     # The spacing between UI elements of the Playthrough save screen
 define smallscreentextsize = 52
     # Hardcoded minimum text size for small screen devices such as smartphones
+define slotheight = config.thumbnail_height
+    # TODO: Test what happens to the layout if slotheight is greater or less than the thumbnail height
+        # [EDIT:] As expected. Fix this; center the thumbnail if too big, compress it if it's too small.
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define focuscolor = "#FFF"
 define insensitivecolor = gui.insensitive_color
 define interfacecolor = gui.interface_text_color
-define slotheight = config.thumbnail_height
     # Optional overrides for certain gui elements
 
-# [ IMAGES/DISPLAYABLES ]
-define pathoffset = "Mods/Playthroughs/"
+
+# [ UI CALIBRATION/DISPLAYABLES ]
 init python:
     textsize = max(min(gui.text_size, 80), 20)
         # Clamp text size to sensible values
         # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed - probably inside a screen
-    if renpy.variant("small") and textsize < smallscreentextsize:
+    if renpy.variant("mobile") and textsize < smallscreentextsize:
         textsize = smallscreentextsize
         # Enlarge text size if player is using a small screen
     iconsize = (textsize, textsize)
         # This matches the icon sizes to the text size
+            # TODO: This is likely obsolete - clean up
     yvalue = int(textsize * 1.5)
         # yvalue is used to line up the edges of various UI elements, primarily buttons which need extra space around the text to look good
     try:
@@ -80,28 +102,82 @@ init python:
         # Test for the existence of 'ColorizeMatrix', without running it
     except NameError:
         slotforeground = renpy.displayable(Frame(pathoffset + "gui/emptyframe.png"))
-        # ColorizeMatrix is not available. Use another form of focus highlighting e.g. Solid("#FFFFFF1F"), im. functions, etc.
+        # ColorizeMatrix is not available. Use another form of focus highlighting e.g. Solid("#FFFFFF1F"), im. functions, etc. In this case, a white border
     else:
         slotforeground = renpy.displayable(Frame(Transform(pathoffset + "gui/emptyframe.png", matrixcolor = ColorizeMatrix(Color("#000"), Color(textcolor))))) # Match the UI color
         # This is what is shown over the top of the hovered/selected  slot, and can be any Displayable or None. Either hard-code it, or use a binding defined at a lower init level
         # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
-        # - NOTE: None is the default, removing the background, resulting in total transparency
-init:
-    # According to the documentation (https://www.renpy.org/doc/html/displaying_images.html#image-statement), there is a distinction between image statements inside and not inside an init block:
-    # "When not contained inside an init block, image statements are run as if they were placed inside an init block of priority 500." I figured 0 was better than 500, so I put it in one /shrug
-    image icon_viewplaythroughs = Transform(pathoffset + "gui/playthroughview.png", xysize = iconsize)
-    image icon_viewrenpypages   = Transform(pathoffset + "gui/renpyview.png", xysize = iconsize)
-    image icon_newplaythrough   = Transform(pathoffset + "gui/newplaythrough.png", xysize = iconsize)
-    image icon_delete           = Transform(pathoffset + "gui/delete.png", xysize = iconsize)
-    image icon_rename           = Transform(pathoffset + "gui/rename.png", xysize = iconsize)
-    image icon_locked           = Transform(pathoffset + "gui/locked.png", xysize = iconsize)
-    image icon_unlocked         = Transform(pathoffset + "gui/unlocked.png", xysize = iconsize)
-default slotbackground = None #Solid("000000CF") # This is what is shown behind each slot, can be a Displayable (e.g. e.g. Frame("gui/nvl.png")) or None (the default). Can be changed e.g. per screen
+    symboltext = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
+        # Locates a font file containing the glyphs we will use instead of image-based icons, below
+            # To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2
+    icon_viewplaythroughs = "{color=" + focuscolor + "}𝌮{/color}" if enable_iconcolors else "𝌮" # 𝌮
+    icon_viewrenpypages   = "{color=" + focuscolor + "}𝌅{/color}" if enable_iconcolors else "𝌅" # 𝌅
+    icon_newplaythrough   = "{color=" + "#00FF00" + "}🞤{/color}" if enable_iconcolors else "🞤" # 🞤
+    icon_rename           = "{color=" + interfacecolor + "}🪶{/color}" if enable_iconcolors else "🪶" # 🪶
+    icon_delete           = "{color=" + "#FF0000" + "}🞫{/color}" if enable_iconcolors else "🞫" # 🞫
+    icon_locked           = "{color=" + "#FF0000" + "}🔒{/color}" if enable_iconcolors else "🔒" # ⚿
+    icon_unlocked         = "{color=" + textcolor + "}🔓{/color}" if enable_iconcolors else "🔓" # ⚿
+    icon_sortbyrecent     = "⭫"     # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
+    icon_sortbynumber     = "#"     # Alternates: 𝍸 #
+    icon_sortbylocked     = "🔒"    # Alternates: 🔒
+    icon_sortbyversion    = "⚠"     # Alternates: ⭭ 🗓 ⚠
+default slotbackground = None
+    # This is what is shown behind each slot, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")). Could be changed by ater code e.g. per screen
+    # - NOTE: None is the default, removing the background, resulting in total transparency
 
-# [ INITIALISATION - CONVENIENCE ]
-define config.has_autosave = True
-define config.has_quicksave = True
-    # These override existing config settings. They are here purely for dev convenience, and can be commented out if they are interfering with existing code
+
+# [ STYLING ]
+    # TODO: Probably needs streamlining/cleanup after the change to glyphs from images - [EDIT:] *definitely* needs...
+style fileslots:
+    padding (0, 0)
+    margin (0, 0)
+style fileslots_text:
+    outlines [(absolute(1), "#000", 0, 0)]
+    size textsize
+style fileslots_focus is fileslots_text:
+    color focuscolor
+style fileslots_button is fileslots:
+    xminimum yvalue
+    ysize yvalue
+style selection_button is fileslots_button:
+    selected_background textcolor
+style icon_button is fileslots_button:
+    hover_background textcolor
+style fileslots_button_text is fileslots_text:
+    insensitive_color insensitivecolor
+    selected_color hovercolor
+    hover_color hovercolor
+    align (0.5, 0.5)
+style selection_button_text is fileslots_button_text
+style icon_text is fileslots_text:
+    font symboltext
+    align (0.5, 0.5)
+    line_leading int(yvalue / 5)    # This line calibrates for this particular glyph font, and will likely need altering if another is used
+style fileslots_frame is fileslots:
+    xfill True
+style fileslots_viewport is fileslots:
+    xfill True
+style fileslots_vscrollbar:
+    unscrollable "hide"
+
+
+# [ TRANSFORMS ]
+transform marquee(t=10.0):
+    subpixel True
+    xanchor 0.0 xpos 1.0
+    linear t xanchor 1.0 xpos 0.0
+    repeat
+
+transform hovermarquee(t=2.5, xpos=0.5, xanchor=0.5):
+    on hover:
+        xpos xpos xanchor xanchor
+        linear t xanchor 1.0 xpos 0.0
+        xanchor 0.0 xpos 1.0
+        linear t xpos xpos xanchor xanchor
+        repeat
+    on idle:
+        xanchor xanchor xpos xpos
+        #linear t/5 xpos xpos xanchor xanchor
 
 
 # [ CLASSES ]
@@ -290,44 +366,23 @@ init -1 python:
             userinput, targetaction, = "", ""
 
 
-# [ STYLING ]
-style fileslots:
-    padding (0, 0)
-    margin (0, 0)
-style fileslots_text:
-    outlines [(absolute(1), "#000", 0, 0)]
-    size textsize
-style fileslots_focus is fileslots_text:
-    color focuscolor
-style fileslots_button is fileslots:
-    xminimum yvalue
-    yminimum yvalue
-style selection_button is fileslots_button:
-    selected_background textcolor
-style icon_button is fileslots_button:
-    hover_background textcolor
-style fileslots_button_text is fileslots_text:
-    insensitive_color insensitivecolor
-    selected_color hovercolor
-    hover_color hovercolor
-    align (0.5, 0.5)
-style selection_button_text is fileslots_button_text
-style icon_text is fileslots_button_text
-style fileslots_frame is fileslots:
-    xfill True
-style fileslots_viewport is fileslots:
-    xfill True
-style fileslots_vscrollbar:
-    unscrollable "hide"
-
-
 # [ SCREENS ]
+screen switchbutton(xpos=0.0, ypos=0.0):
+    # Provide a button to switch to the Playthroughs save system
+    button:
+        tooltip "Switch to the Playthrough system"
+        style_prefix "icon"
+        pos (xpos, ypos)
+        text icon_viewplaythroughs
+        action SetVariable("persistent.save_system", "playthrough")
+
 # The original save/load system screen, modified by OscarSix to simply be a wrapper for either of the screens used, below:
 screen file_slots(title):
-    # TODO: Metrics may need to be tested for and adjusted here, in case people have altered the text size via Preferences or Accessibility. This may require 'gui.rebuild()'
+    # TODO: Metrics may need to be tested for and adjusted here, in case people have altered the text size via Preferences or Accessibility. This may require 'gui.rebuild()', which would suck
     style_prefix "fileslots"
     if persistent.save_system == "original":
         use original_file_slots(title=title)
+        use switchbutton(0.25, 0.18)    # This places the icon outside the proper panel; position references the entire screen. This will show regardless of Dev version of original_file_slots()
     elif persistent.save_system == "playthrough":
         use playthrough_file_slots(title=title)
     else:
@@ -338,12 +393,7 @@ screen original_file_slots(title):
     default page_name_value = FilePageNameInputValue(pattern=_("Page {}"), auto=_("Automatic saves"), quick=_("Quick saves"))
     use game_menu(title):
         fixed:
-            # Provide a button to switch to the original save system
-            button:
-                tooltip "Switch to the Playthrough system"
-                style_prefix "icon"
-                text "{image=icon_viewplaythroughs}"
-                action SetVariable("persistent.save_system", "playthrough")
+            #use switchbutton()    # This places the icon inside the proper panel; position references it. Dev can use this inside their own screen
             ## This ensures the input will get the enter event before any of the buttons do.
             order_reverse True
             ## The page name, which can be edited by clicking on a button.
@@ -407,15 +457,11 @@ screen playthrough_file_slots(title):
         # By using 'side' in this manner, we put any tooltips in a strip across the top of the container we're in, and everything else in the center (below)
         # - Because of the way in which side calculates its layout (center last), subcontainers get accurate metrics with which to handle their own calculations, dodging some viewport issues
         side "t c":
-            # Top tooltip, displayed above everything else
-            # TODO: We need a nice solution here. It must be one line, ideally not too high, and marquee if contents outsize it.
-            viewport:
-                xfill False # I think this is needed for 'align' to work. The solution may change this
-                align (1.0, 0.0)
-                ysize yvalue # This may be altered for the solution mooted above
-                xmaximum 1.0
-                xoffset -(gui.scrollbar_size + (layoutseparator * 2))
-                    # This puts the rightmost edge of the text just inside any (visible or invisible) vertical scrollbars below it, because it looks better
+            # Top tooltip, displayed above everything else.
+                # TODO: scroll only if contents outsize the container. Currently: Always scrolls
+            fixed:
+                ysize yvalue
+                at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)     # Display only what is inside the container
                 # Collect and display any active tooltip on this page
                 $ help = GetTooltip()
                 if help:
@@ -423,6 +469,7 @@ screen playthrough_file_slots(title):
                         style "fileslots_focus"
                         layout "nobreak"
                         italic True
+                        at marquee
             # Two panels, side-by-side in an hbox: Playthroughs and Slots
             hbox:
                 spacing 60
@@ -445,7 +492,7 @@ screen playthrough_file_slots(title):
                         button:
                             tooltip "Switch to the Ren'Py [title] system"
                             style_prefix "icon"
-                            text "{image=icon_viewrenpypages}"
+                            text icon_viewrenpypages
                             action SetField(persistent, "save_system", "original")
                         if config.has_autosave:
                             textbutton  _("{#auto_page}A"):
@@ -464,7 +511,7 @@ screen playthrough_file_slots(title):
                             button:
                                 tooltip "Create a new Playthrough"
                                 style_prefix "icon"
-                                text "{image=icon_newplaythrough}"
+                                text icon_newplaythrough
                                 action [SetVariable("targetaction", "newplaythroughname"),
                                         Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
                                         AwaitUserInput()]
@@ -486,7 +533,7 @@ screen playthrough_file_slots(title):
                                         if enable_renaming and persistent.playthroughslist[i] == viewingptname:
                                             tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
                                             style_prefix "icon"
-                                            text "{image=icon_rename}"
+                                            text icon_rename
                                             action [SetVariable("targetaction", "changeplaythroughname"),
                                                     Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
                                                     AwaitUserInput()]
@@ -495,14 +542,12 @@ screen playthrough_file_slots(title):
                                         tooltip "Show Slots in the \"{}\" Playthrough".format(persistent.playthroughslist[i])
                                         style "selection_button"
                                         xysize (1.0, yvalue)
-                                        viewport: # TODO: See if we can't get a better solution
-                                            xfill False # Needed to get the text central /shrug
-                                            align (0.5, 0.5)
-                                            edgescroll (50, 500) # TODO: Need a solution for touch devices: Jeevant/Wills/henvu50
-                                            text " {} ".format(persistent.playthroughslist[i]):
-                                                layout "nobreak"
-                                                hover_color hovercolor
-                                                color (hovercolor if persistent.playthroughslist[i] == viewingptname else textcolor)
+                                        at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)     # This keeps the contents inside the box by cropping anything outside of it off
+                                        text " {} ".format(persistent.playthroughslist[i]):
+                                            layout "nobreak"
+                                            hover_color hovercolor
+                                            color (hovercolor if persistent.playthroughslist[i] == viewingptname else textcolor)
+                                            at hovermarquee
                                         action [SetVariable("viewingptname", persistent.playthroughslist[i]),
                                                 SetVariable("viewingpt", Playthrough(name=persistent.playthroughslist[i]))]
                                     # Delete button at the right, if we're dealing with the selected playthrough
@@ -512,7 +557,7 @@ screen playthrough_file_slots(title):
                                         if persistent.playthroughslist[i] == viewingptname:
                                             tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
                                             style_prefix "icon"
-                                            text "{image=icon_delete}"
+                                            text icon_delete
                                             action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
 # >>>   \/ \/ \/ REMOVE FROM FINAL BUILD!!! \/ \/ \/   <<<
                             # Test playthroughs for layout verification - Status: CURRENT, GOOD
@@ -525,21 +570,19 @@ screen playthrough_file_slots(title):
                                             if enable_renaming:
                                                 tooltip "Rename the \"{}\" Playthrough".format(i)
                                                 style_prefix "icon"
-                                                text "{image=icon_rename}"
+                                                text icon_rename
                                                 action NullAction()
                                         button:
                                             tooltip "Show Slots in the \"{}\" Playthrough".format(i)
                                             style "selection_button"
                                             xysize (1.0, yvalue)
-                                            viewport:
-                                                xfill False
-                                                align (0.5, 0.5)
-                                                edgescroll (50, 500)
-                                                text " {} ".format(i):
-                                                    layout "nobreak"
-                                                    hover_color hovercolor
-                                                    selected_color hovercolor
-                                                    color textcolor
+                                            at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
+                                            text " {} ".format(i):
+                                                layout "nobreak"
+                                                hover_color hovercolor
+                                                selected_color hovercolor
+                                                color textcolor
+                                                at hovermarquee
                                             action NullAction()
                                         button:
                                             xysize (yvalue, yvalue)
@@ -547,7 +590,7 @@ screen playthrough_file_slots(title):
                                             if True:
                                                 tooltip "Delete the \"{}\" Playthrough".format(i)
                                                 style_prefix "icon"
-                                                text "{image=icon_delete}"
+                                                text icon_delete
                                                 action NullAction()
 # >>>   /\ /\ /\ END REMOVAL SECTION /\ /\ /\   <<<
                 # Fileslots panel
@@ -561,33 +604,50 @@ screen playthrough_file_slots(title):
                     # Provide (or not) buttons that alter the key that the slotslist is sorted on
                     if enable_sorting and viewingptname and viewingptname != "auto" and viewingptname != "quick":
                         hbox:
+                            # TODO: Streamline styling... again
                             ysize yvalue
-                            # Provide (or not) buttons that alter the key that the slotslist is sorted on
-                            # TODO: Decide whether to include buttons for 'versionnumber' and/or 'lockedstatus', and how best to do that given textsize/space concerns. More Icons?
-                            # TODO: Move some of this into styling
-                            # TODO: Test using 'Function(function, (*args, **kwargs))' in the action statements
-                            #       - [EDIT:] "Function(viewingpt.SortSlots, reverse=False)" doesn't appear to work
-                            textbutton " Recent ":
+                            text "Sort by: "
+                            button:
                                 tooltip "Sort slots by most recently changed first"
-                                style_prefix "selection"
+                                style_prefix "icon"
+                                selected_background textcolor
+                                hover_background None
+                                text icon_sortbyrecent:
+                                    hover_color hovercolor
+                                    selected_color hovercolor
                                 action [SetVariable("persistent.sortby", "lastmodified"),
                                         viewingpt.SortSlots]
-                            textbutton " Number ":
+                            button:
                                 tooltip "Sort slots by highest slot number first"
-                                style_prefix "selection"
+                                style_prefix "icon"
+                                selected_background textcolor
+                                hover_background None
+                                text icon_sortbynumber:
+                                    hover_color hovercolor
+                                    selected_color hovercolor
                                 action [SetVariable("persistent.sortby", "slotnumber"),
                                         viewingpt.SortSlots]
-                            if enable_versioning:
-                                textbutton " Version ":
-                                    tooltip "Sort slots by lowest version number"
-                                    style_prefix "selection"
-                                    action [SetVariable("persistent.sortby", "versionnumber"),
-                                            viewingpt.SortSlots]
                             if enable_locking:
-                                textbutton " Locked ":
+                                button:
                                     tooltip "Sort slots by showing locked slots first"
-                                    style_prefix "selection"
+                                    style_prefix "icon"
+                                    selected_background textcolor
+                                    hover_background None
+                                    text icon_sortbylocked:
+                                        hover_color hovercolor
+                                        selected_color hovercolor
                                     action [SetVariable("persistent.sortby", "lockedstatus"),
+                                            viewingpt.SortSlots]
+                            if enable_versioning:
+                                button:
+                                    tooltip "Sort slots by lowest version number"
+                                    style_prefix "icon"
+                                    selected_background textcolor
+                                    hover_background None
+                                    text icon_sortbyversion:
+                                        hover_color hovercolor
+                                        selected_color hovercolor
+                                    action [SetVariable("persistent.sortby", "versionnumber"),
                                             viewingpt.SortSlots]
                         null height layoutseparator
                     # Vertically-scrolling viewport for the slotslist
@@ -705,7 +765,7 @@ screen playthrough_file_slots(title):
                                                                 button:
                                                                     tooltip "Rename {}".format(slotname)
                                                                     style_prefix "icon"
-                                                                    text "{image=icon_rename}"
+                                                                    text icon_rename
                                                                     action [SetVariable("targetaction", "changeslotname"),
                                                                             SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, lockedstatus]),
                                                                             Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
@@ -714,14 +774,15 @@ screen playthrough_file_slots(title):
                                                                 button:
                                                                     tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
                                                                     style_prefix "icon"
-                                                                    text "{}".format("{image=icon_locked}" if lockedstatus == "LOCKED" else "{image=icon_unlocked}")
+                                                                    text (icon_locked if lockedstatus == "LOCKED" else icon_unlocked)
+                                                                    # .format("{image=icon_locked}" if lockedstatus == "LOCKED" else "{image=icon_unlocked}")
                                                                     action [SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED"]),
                                                                             ReflectSlotChanges]
                                                             if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                                                                 button:
                                                                     tooltip "Delete {}".format(slotname)
                                                                     style_prefix "icon"
-                                                                    text "{image=icon_delete}"
+                                                                    text icon_delete
                                                                     action FileDelete(filename, slot=True)
 
 
@@ -786,7 +847,7 @@ screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
 # - bground       : [optional] : Passed to screen queryframe() - a Displayable for the background property of the largest non-transparent Frame(), which will be scaled to fit
 # - styleprefix   : [optional] : a string containing the style_prefix to apply to the whole box, including any children
 # - tcolor        : [optional] : a Color object (e.g. "#F00") for the text in the input field. This will override the default/specified styling
-screen querystring(query="Hmm?", preload="", excludes="[{", invalid=[], maxcharlen=None, maxpixelwidth=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("small") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
+screen querystring(query="Hmm?", preload="", excludes="[{", invalid=[], maxcharlen=None, maxpixelwidth=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("mobile") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
     style_prefix styleprefix
     if variable is None:
         $ raise Exception("Invalid argument - screen querystring([required] variable=\"variable_name\"):")
@@ -836,7 +897,7 @@ screen querystring(query="Hmm?", preload="", excludes="[{", invalid=[], maxcharl
 # - styleprefix   : [optional] : a string containing the style_prefix to apply to the whole box, including any children
 # - tcolor        : [optional] : a Color object (e.g. "#F00") for the text in the input field. This will override the default/specified styling
 # NOTE: This is a cut-down version of a screen in another project, since this version is not required to handle floats or negative numbers
-screen querynumber(query="Hmm?", preload="", minval=None, maxval=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("small") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
+screen querynumber(query="Hmm?", preload="", minval=None, maxval=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("mobile") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
     style_prefix styleprefix
     if variable is None:
         $ raise Exception("Invalid argument - screen querystring([required] variable=\"variable_name\"):")
