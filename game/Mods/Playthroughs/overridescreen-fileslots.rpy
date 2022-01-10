@@ -11,8 +11,6 @@ define testplaythroughlistsize = False
 #   - Tooltip says overwrite (no warning)
 #   - Clicking attempts an overwrite with no warning, produces a new save with the same name
 #   - Second attempt will produce a warning (not tested further to avoid obliterating test file)
-# - Investigate how to play nicely with the Accessibilty screen, or people adjusting text size via Preferences
-#   - [EDIT:] These are actual Preferences variables, and thus checkable
 # - Refactor slot numbers so that they may be infinite. At the same time, fix the bug that occurs if the dev has a "-" in the version number.
 # - Consider Slotbutton redesign to accomodate mobile devices more easily NOTE: This is becoming more and more of a priority.
 #   - [EDIT:] This may fix the Roald Dahl bug. Remember to simplify, and to use 'side "":'
@@ -86,16 +84,15 @@ define interfacecolor = gui.interface_text_color
 
 # [ UI CALIBRATION/DISPLAYABLES ]
 init python:
-    textsize = max(min(gui.text_size, 80), 20)
+    lastknownaccessibilityscale = preferences.font_size
+    lastknownfontsize = gui.text_size
+    textsize = max(min(lastknownfontsize, 80), 20)
         # Clamp text size to sensible values
         # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed - probably inside a screen
     if renpy.variant("mobile") and textsize < smallscreentextsize:
         textsize = smallscreentextsize
         # Enlarge text size if player is using a small screen
-    iconsize = (textsize, textsize)
-        # This matches the icon sizes to the text size
-            # TODO: This is likely obsolete - clean up
-    yvalue = int(textsize * 1.5)
+    yvalue = int(textsize * 1.5 * lastknownaccessibilityscale)
         # yvalue is used to line up the edges of various UI elements, primarily buttons which need extra space around the text to look good
     try:
         ColorizeMatrix
@@ -127,7 +124,7 @@ default slotbackground = None
 
 
 # [ STYLING ]
-    # TODO: Probably needs streamlining/cleanup after the change to glyphs from images - [EDIT:] *definitely* needs...
+    # TODO: Probably needs streamlining/cleanup after the change to glyphs from images - [EDIT:] *definitely* needs... investigate suffixes
 style fileslots:
     padding (0, 0)
     margin (0, 0)
@@ -177,19 +174,17 @@ transform hovermarquee(t=2.5, xpos=0.5, xanchor=0.5):
         repeat
     on idle:
         xanchor xanchor xpos xpos
-        #linear t/5 xpos xpos xanchor xanchor
 
 
 # [ CLASSES ]
-# TODO: These will need docstrings, apparently?
 init python:
     # Reference: (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
     class Playthrough:
         def __init__(self, name=None):
             # Constructor - defines and initialises the new object properly
             # - WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
-            # NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
-                # [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
+            #   NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
+            #       [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
             if name == None:
                 raise Exception("Invalid argument - object '{self}' of class 'Playthrough': __init__([required] name=string)")
             self.name = name
@@ -367,8 +362,8 @@ init -1 python:
 
 
 # [ SCREENS ]
+# Provide a button to switch to the Playthroughs save system
 screen switchbutton(xpos=0.0, ypos=0.0):
-    # Provide a button to switch to the Playthroughs save system
     button:
         tooltip "Switch to the Playthrough system"
         style_prefix "icon"
@@ -376,77 +371,49 @@ screen switchbutton(xpos=0.0, ypos=0.0):
         text icon_viewplaythroughs
         action SetVariable("persistent.save_system", "playthrough")
 
-# The original save/load system screen, modified by OscarSix to simply be a wrapper for either of the screens used, below:
-screen file_slots(title):
-    # TODO: Metrics may need to be tested for and adjusted here, in case people have altered the text size via Preferences or Accessibility. This may require 'gui.rebuild()', which would suck
-    style_prefix "fileslots"
+# The original save screen, modified and overridden
+screen save():
+    tag menu
     if persistent.save_system == "original":
-        use original_file_slots(title=title)
-        use switchbutton(0.25, 0.18)    # This places the icon outside the proper panel; position references the entire screen. This will show regardless of Dev version of original_file_slots()
+        use file_slots("Save")
+        use switchbutton(0.25, 0.18)
+            # This places the button top-left of the file_slots screen in the default UI. Position references the entire screen. This will show regardless of Dev version of 'file_slots()'
     elif persistent.save_system == "playthrough":
-        use playthrough_file_slots(title=title)
+        use playthrough_file_slots("Save")
     else:
         $ raise Exception("Error: Invalid persistent.save_system - \"{}\"".format(persistent.save_system))
 
-# Our/the game Dev's version of the original save/load screen
-screen original_file_slots(title):
-    default page_name_value = FilePageNameInputValue(pattern=_("Page {}"), auto=_("Automatic saves"), quick=_("Quick saves"))
-    use game_menu(title):
-        fixed:
-            #use switchbutton()    # This places the icon inside the proper panel; position references it. Dev can use this inside their own screen
-            ## This ensures the input will get the enter event before any of the buttons do.
-            order_reverse True
-            ## The page name, which can be edited by clicking on a button.
-            button:
-                style "page_label"
-                key_events True
-                xalign 0.5
-                action page_name_value.Toggle()
-                input:
-                    style "page_label_text"
-                    value page_name_value
-            ## The grid of file slots.
-            grid gui.file_slot_cols gui.file_slot_rows:
-                style_prefix "slot"
-                xalign 0.5
-                yalign 0.5
-                spacing gui.slot_spacing
-                for i in range(gui.file_slot_cols * gui.file_slot_rows):
-                    $ slot = i + 1
-                    button:
-                        action FileAction(slot)
-                        has vbox
-                        add FileScreenshot(slot) xalign 0.5
-                        text FileTime(slot, format=_("{#file_time}%A, %B %d %Y, %H:%M"), empty=_("empty slot")):
-                            style "slot_time_text"
-                        text FileSaveName(slot):
-                            style "slot_name_text"
-                        key "save_delete" action FileDelete(slot)
-            # Collect and display any active tooltip on this page
-            $ help = GetTooltip()
-            if help:
-                text help style "fileslots_focus" italic True size gui.interface_text_size xalign 0.5 yalign 0.9
-            ## Buttons to access other pages.
-            hbox:
-                style_prefix "page"
-                xalign 0.5
-                yalign 1.0
-                spacing gui.page_spacing
-                textbutton _("<") action FilePagePrevious()
-                if config.has_autosave:
-                    textbutton _("{#auto_page}A") action FilePage("auto")
-                if config.has_quicksave:
-                    textbutton _("{#quick_page}Q") action FilePage("quick")
-                ## range(1, 10) gives the numbers from 1 to 9.
-                for page in range(1, 10):
-                    textbutton "[page]" action FilePage(page)
-                textbutton _(">") action FilePageNext()
+# The original load screen, modified and overridden
+screen load():
+    tag menu
+    if persistent.save_system == "original":
+        use file_slots("Load")
+        use switchbutton(0.25, 0.18)
+            # This places the button top-left of the file_slots screen in the default UI. Position references the entire screen. This will show regardless of Dev version of 'file_slots()'
+    elif persistent.save_system == "playthrough":
+        use playthrough_file_slots("Load")
+    else:
+        $ raise Exception("Error: Invalid persistent.save_system - \"{}\"".format(persistent.save_system))
 
 # The new playthrough system
 screen playthrough_file_slots(title):
+    # TODO: Metrics may need to be tested for and adjusted here, in case people have altered the text size via Preferences or Accessibility. This may require 'gui.rebuild()', which would suck
     python:
         # Make sure we're accessing the global variables
         global viewingptname, viewingpt
+        global lastknownaccessibilityscale, lastknownfontsize, textsize, yvalue
+        # Check whether the font size has changed, before we reach the 'style_prefix' line below
+        if preferences.font_size != lastknownaccessibilityscale or gui.text_size != textsize:
+            print("Font size change detected! P:'{}' to '{}'; A:'{}' to '{}'".format(lastknownfontsize, gui.text_size, lastknownaccessibilityscale, preferences.font_size))
+            lastknownaccessibilityscale = preferences.font_size
+            lastknownfontsize = gui.text_size
+            textsize = max(min(lastknownfontsize, 80), 20)
+                # Clamp text size to sensible values
+            if renpy.variant("mobile") and textsize < smallscreentextsize:
+                textsize = smallscreentextsize
+                # Enlarge text size if player is using a small screen
+            yvalue = int(textsize * 1.5 * lastknownaccessibilityscale)
+            gui.rebuild()
         # Check the validity of the playthrough name that we're viewing. If invalid, find the latest valid name. If none found, set 'viewingptname' to an empty string
         if ((config.has_autosave and viewingptname == "auto") or (config.has_quicksave and viewingptname == "quick") or (persistent.playthroughslist and viewingptname in persistent.playthroughslist)) == False:
             viewingptname = persistent.playthroughslist[-1] if persistent.playthroughslist else ""
@@ -461,7 +428,8 @@ screen playthrough_file_slots(title):
                 # TODO: scroll only if contents outsize the container. Currently: Always scrolls
             fixed:
                 ysize yvalue
-                at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)     # Display only what is inside the container
+                # Display only what is inside the container
+                at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                 # Collect and display any active tooltip on this page
                 $ help = GetTooltip()
                 if help:
@@ -654,9 +622,9 @@ screen playthrough_file_slots(title):
                     viewport:
                         scrollbars "vertical"
                         mousewheel True
-                        spacing layoutseparator # This separates the slots from the scrollbar
+                        spacing layoutseparator # This separates the slots from the vertical scrollbar
                         vbox:
-                            spacing layoutseparator
+                            spacing layoutseparator # This separates the slots from each other
                             # Display all the fileslots that are in the playthrough being viewed, keyed off 'viewingptname'. If no playthrough is being viewed, display nothing
                             if viewingptname != "":
                                 # For each slot in the Playthrough...
