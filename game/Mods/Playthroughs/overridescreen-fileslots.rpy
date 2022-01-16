@@ -1,9 +1,12 @@
 # [ DEBUG TOGGLES - REMOVE ALL CODE REFERENCING THESE BINDINGS ]
 define config.developer = True
 define testplaythroughlistsize = False
+define testallbuttons = False
     # TODO: The more buttons (and viewports?) onscreen, the more sluggish the UI gets. Attempt to optimise (especially for phones?)
-        # NOTE: Removing the viewports from the Playthrough list didn't improve anything. It has to be the buttons... although: try turning prediction off for this screen?
+        # NOTE: Removing the viewports from the Playthrough list didn't improve anything. It has to be the buttons..?
         # NOTE: It could also be us dipping in and out of AwaitUserInput() at 300+Hz, although I doubt it. Worth checking... somehow
+        # NOTE: Having buttons spawn only when needed appears to help. The same problem occurs with high numbers of slots, as well as Playthroughs. Slot redesign definitely needed
+        # NOTE: ...although: try turning prediction off for this screen?
 
 
 # [ NEXT TASKS ]
@@ -11,13 +14,14 @@ define testplaythroughlistsize = False
 #   - Tooltip says overwrite (no warning)
 #   - Clicking attempts an overwrite with no warning, produces a new save with the same name
 #   - Second attempt will produce a warning (not tested further to avoid obliterating test file)
-# - Refactor slot numbers so that they may be infinite. At the same time, fix the bug that occurs if the dev has a "-" in the version number.
 # - Consider Slotbutton redesign to accomodate mobile devices more easily NOTE: This is becoming more and more of a priority.
 #   - [EDIT:] This may fix the Roald Dahl bug. Remember to simplify, and to use 'side "":'
 #   - [EDIT:] Check that the vscrollbar in the name viewport has no right-hand spacing if it's up against the edge of the slot
 # - Streamline and triple-check styles are behaving correctly
-# - Investigate and solve the '.isdecimal()' issue noted when dropping the package into older games - [EDIT:] Oscar seemd to solve this by testing against 'not'
+# - Investigate and solve the '.isdecimal()' issue noted when dropping the package into older games
+#   - [EDIT:] Oscar seemd to solve this by testing against 'not'. I look, and that's already there. This may be a non-issue - check later
 # - Get all mod variables into its own named store
+#   - [EDIT:] May not be needed. May not even be useful. Further research needed.
 # - Adapt all user-viewable strings to support translation
 # - Write and test package against the feature list on GitHub
 
@@ -34,6 +38,8 @@ default persistent.save_system = "original"
 default persistent.sortby = "lastmodified"
 default persistent.playthroughslist = []
     # TODO: Does this need to be persistent? This might be causing the cpickle fail after package deletion. We can always repopulate on run, which is probably safer anyway...
+    #   - [EDIT:] This is how we keep the Playthroughs in order of "last changed"
+    #   - NOTE: I suspect cpickle doesn't like defaulted variables (i.e. saved in files because rollback) that are of type <class no longer exists>. Use defines wherever possible - can change them
 default viewingptname = ""
 default viewingpt = []
 default userinput = ""
@@ -54,7 +60,7 @@ define enable_locking = True
     # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, overwritten or deleted in-game
     # - NOTE: If there are locked files present when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved. This behaviour is correct.
 define enable_sorting = True
-    # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified", "slotnumber", "versionnumber" and "lockedstatus" by default
+    # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified", "slotnumber", "lockedstatus" and "versionnumber" by default
 define enable_iconcolors = True
     # This enables some glyphs to be color-coded. If False, all glyphs will be `textcolor`
         # TODO: This may be better as a persistent toggle, possibly changed by this packages' Preferences screen
@@ -64,6 +70,7 @@ define enable_iconcolors = True
 define config.has_autosave = True
 define config.has_quicksave = True
     # These override existing config settings. They are here purely for dev convenience, and can be commented out if they are interfering with existing code
+    # TODO: Test that setting these False still prevents Playthroughs from accessing them
 
 
 # [ INITIALISATION - UI ]
@@ -73,7 +80,7 @@ define smallscreentextsize = 52
     # Hardcoded minimum text size for small screen devices such as smartphones
 define slotheight = config.thumbnail_height
     # TODO: Test what happens to the layout if slotheight is greater or less than the thumbnail height
-        # [EDIT:] As expected. Fix this; center the thumbnail if too big, compress it if it's too small.
+        # TODO: As expected. Fix this; center the thumbnail if too big, compress it if it's too small.
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define focuscolor = "#FFF"
@@ -88,7 +95,6 @@ init python:
     lastknownfontsize = gui.text_size
     textsize = max(min(lastknownfontsize, 80), 20)
         # Clamp text size to sensible values
-        # - TODO: Some games permit the player to change 'gui.text_size' via the Preferences screen, or via the Accessibility screen. Recalculate this if needed - probably inside a screen
     if renpy.variant("mobile") and textsize < smallscreentextsize:
         textsize = smallscreentextsize
         # Enlarge text size if player is using a small screen
@@ -119,7 +125,7 @@ init python:
     icon_sortbylocked     = "🔒"    # Alternates: 🔒
     icon_sortbyversion    = "⚠"     # Alternates: ⭭ 🗓 ⚠
 default slotbackground = None
-    # This is what is shown behind each slot, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")). Could be changed by ater code e.g. per screen
+    # This is what is shown behind each slot, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")). Could be changed by later code e.g. per screen
     # - NOTE: None is the default, removing the background, resulting in total transparency
 
 
@@ -182,15 +188,12 @@ init python:
     class Playthrough:
         def __init__(self, name=None):
             # Constructor - defines and initialises the new object properly
-            # - WARNING: New instances of this object are created frequently, albeit assigned to the same variable. I'm going to assume the garbage collector frees up previously allocated memory
-            #   NOTE: I may need to find a way to determine if this is happening correctly. Failing that, I expect that there is a way to explicitly release the previous object
-            #       [EDIT:] I read this (https://stackify.com/python-garbage-collection/). This suggests I don't need to worry about it, and provides a profiler should I feel the need to check
             if name == None:
                 raise Exception("Invalid argument - object '{self}' of class 'Playthrough': __init__([required] name=string)")
             self.name = name
             self.slots = self.GetSlots()
-            self.lockcount = [slot[5] for slot in self.slots].count("LOCKED")
-            self.higherversioncount = [True if slot[3].lower() > config.version.lower() else False for slot in self.slots].count(True)
+            self.lockcount = [slot[4] for slot in self.slots].count("LOCKED")
+            self.higherversioncount = [True if slot[5].lower() > config.version.lower() else False for slot in self.slots].count(True)
             self.SortSlots()
 
         def GetSlots(self):
@@ -198,23 +201,21 @@ init python:
             # Populate the slotslist by using a 'regex'. 'Regex' is short for "regular expression". It defines rules for extracting wanted data out of a pile of it
             # - This particular regex says that we want matches that: "^"(begins with) + (self.name(the name field of this object) + "-"(to avoid unwanted partial matches))
             files, slots = renpy.list_saved_games("^" + self.name + "-", fast=True), []
+            # TODO: If we wind up having to get all the thumbnails to populate the Slots in the vbox anyway, we may as well do it all at once...
             # - We need a slot structure:
             #   - Filename          : Full string as used by Ren'Py file functions
             #   - Last modified     : UNIX epoch offset     - WARNING: Ren'Py file renaming preserves the OS timestamp on Windows. It may not on other systems
             #   - Slot number       : 1-99999, zero-padded 5-character string. If this slot number is exceeded, the "+ New Save +" button is not shown
-                                    # [REOPENED] Perhaps set this as a dev-controlled magnitude option? They may want to limit it to 10, 100, 1000, etc.
-                                    #  - [EDIT:] If desired, they can handle it
-                                            # TODO: Or I could stop being lazy and rewrite this so that: zero-padding is not a thing; slots are infinite; max() and .SortSlots() use ints, not strings
-            #   - Version number    : The version number of the game when the file was last properly saved (as opposed to renamed)
             #   - Editable name     : What the player sees. It defaults to Playthrough Name + Slot Number
             #   - Locked status     : A string. Code currently assigns meaning to "LOCKED" or "", nothing else
+            #   - Version number    : The version number of the game when the file was last properly saved (as opposed to renamed). WARNING: Must go last, in case Dev uses "-" in it
             # - With this in place, our code references the list (with the exception of the thumbnail). Every change to filename subdata must be reflected to the disk file immediately
             for file in files:
                 subdata = file.split("-")
                 if (self.name == "auto" or self.name == "quick"):
-                    slots.append([file, renpy.slot_mtime(file), subdata[1], "", FileSaveName(file, empty="", slot=True), ""])
+                    slots.append([file, renpy.slot_mtime(file), int(subdata[1]), FileSaveName(file, empty="", slot=True), "", ""])
                 else:
-                    slots.append([file, renpy.slot_mtime(file)] + subdata[1:])
+                    slots.append([file, renpy.slot_mtime(file)] + [int(subdata[1])] + subdata[2:4] + ["-".join(subdata[4:])])
             # Pass the data back to the calling expression
             return slots
 
@@ -223,7 +224,7 @@ init python:
             # - NOTE: This doesn't appear to be necessary. I don't know why? - [EDIT:] There is other code that shouldn't work, and does. I think it's just the way Ren'Py handles stuff internally
             # Sort the slots in (reverse) order according to the value of 'persistent.sortby':
             # - NOTE: The '.sort()' method mutates the original list, making changes in place
-            slotkeys = ["filename", "lastmodified", "slotnumber", "versionnumber", "editablename", "lockedstatus"]
+            slotkeys = ["filename", "lastmodified", "slotnumber", "editablename", "lockedstatus", "versionnumber"]
             # ... Since "auto"/"quick" saves are performed cyclically, sorting by "lastmodified" is the same as sorting by "slotnumber" would be for Playthrough slotlists
             sortby = "lastmodified" if (self.name == "auto" or self.name == "quick") else persistent.sortby
             # ... Default to "lastmodified" if the requested 'sortby' cannot be found in 'slotkeys[]', and store the index of the required key
@@ -232,7 +233,7 @@ init python:
             # - NOTE: lambdas are disposable anonymous functions that use (an) input(s) to derive a required output. More here: (https://www.w3schools.com/python/python_lambda.asp)
             if sortby in ("versionnumber","lockedstatus"):
                 reverse = False
-                # TODO: Fix kludgey override above and make the button call the function with parameters - [EDIT:] "Function(viewingpt.SortSlots, reverse=False)" not working
+                # TODO: Fix kludgey override above and make the button call the function with parameters - [EDIT:] NOTE: "Function(viewingpt.SortSlots, reverse=False)" not working
             self.slots.sort(reverse=reverse, key=lambda x: x[sortkey])
             # If appropriate, add slots that define "+ New Save +" slots by position. Since "auto"/"quick" are hard-sorted by "lastmodified", this will not affect those 'playthrough's
             i = slotkeys.index("slotnumber")
@@ -242,33 +243,20 @@ init python:
                 span = len(self.slots) - 1
                 for slot in range(span, 0, -1):
                     lower, upper = self.slots[slot][i], self.slots[slot - 1][i]
-                    # Dodge 'int()' crashing over a non-decimal string (including an empty one)
-                    if not lower.isdecimal() or not upper.isdecimal():
-                        raise Exception("'lower' or 'upper' was not decimal ({} or {}) while inserting intermediate \"+ New Save +\" slot(s) in {}.SortSlots()".format(lower, upper, self.name))
-                    lower, upper = int(lower), int(upper)
                     if upper-lower == 2:
                         # There is a single-slot gap here
-                        # - NOTE: Since this field may be checked by 'max()' later, we need the string in the same zero-padded, five-wide format that all the of the other slotnumbers are in
-                            # TODO: Fix this as specified in 'Playthrough.GetSlots()', above
-                        self.slots.insert(slot, ["+ New Save +", "", "{:05}".format(lower + 1), "", "", ""])
+                        self.slots.insert(slot, ["+ New Save +", "", lower + 1, "", "", ""])
                     elif upper-lower > 2:
                         # There is a multi-slot gap here; store the range (as integers) in the 'lastmodified' and 'versionnumber' fields
-                        self.slots.insert(slot, ["+ New Save +", lower + 1, "", upper - 1, "", ""])
-            # Finally, insert a "+ New Save +" slot at the beginning of the list - unless we're in "auto"/"quick", or the new slot number would be 10000+
+                        self.slots.insert(slot, ["+ New Save +", lower + 1, "", "", "", upper - 1 ])
+            # Finally, insert a "+ New Save +" slot at the beginning of the list - unless we're in "auto"/"quick"
             if self.name != "auto" and self.name != "quick":
                 # Find the highest slotnumber there currently is, and add 1. Insert this "+ New Save +" slot at the beginning of the list
-                slotnumbers = [slot[i] for slot in self.slots]
+                slotnumbers = [slot[i] for slot in self.slots if slot[0] != "+ New Save +"]
                 # Dodge 'max()' crashing over an empty list...
-                slotnumber = max(slotnumbers) if slotnumbers != [] else "0"
-                # Dodge 'int()' crashing over a non-decimal or empty string...
-                # TODO: Since this type of check gets performed a lot, consider writing a multipurpose safety-check function for type conversions
-                if not slotnumber.isdecimal():
-                    raise Exception("'slotnumber' was not decimal ({}) while inserting topmost \"+ New Save +\" slot in {}.SortSlots()".format(slotnumber, self.name))
-                slotnumber = int(slotnumber) + 1
-                # Dodge slot numbers requiring more than five characters...
-                    # TODO: This check will become obsolete once we've done away with the five-character-width requirement. Get rid of it, once that is done
-                if slotnumber < 10000:
-                    self.slots.insert(0, ["+ New Save +", "", "{:05}".format(slotnumber), "", "", ""])
+                slotnumber = max(slotnumbers) if slotnumbers != [] else 0
+                slotnumber += 1
+                self.slots.insert(0, ["+ New Save +", "", slotnumber, "", "", ""])
 
 
 # [ FUNCTIONS ]
@@ -298,7 +286,7 @@ init -1 python:
             raise Exception("Error: File \"{}\" does not exist".format(slotdetails[0]))
         newfilename = viewingptname
         for subdata in slotdetails[1:]:
-            if subdata: newfilename += "-" + subdata
+            if subdata: newfilename += "-" + str(subdata)   # TODO: See if this can be done with .join()
         if slotdetails[0] != newfilename:
             renpy.rename_save(slotdetails[0], newfilename)
         slotdetails = []
@@ -339,7 +327,8 @@ init -1 python:
                 for slot in viewingpt.slots:
                     slotdetails = slot
                     slotdetails.pop(1)
-                    slotdetails[3] = slotdetails[3].replace(oldptname, viewingptname)
+                    if slotdetails[3] != "LOCKED":
+                        slotdetails[2] = slotdetails[2].replace(oldptname, viewingptname)
                     ReflectSlotChanges()
                 if persistent.playthroughslist.count(oldptname) != 1:
                     raise Exception("Error: {} one copy of Playthrough \"{}\" in the persistent list".format("Less than" if persistent.playthroughslist.count(oldptname) < 1 else "More than", oldptname))
@@ -347,18 +336,18 @@ init -1 python:
                 viewingpt = Playthrough(name=viewingptname)
             elif targetaction == "newslotnumber":
                 # This saves the new file if not already existent, then updates the playthrough list order
-                filename = "{0}-{1:05}-{2}-{0} {1}-Unlocked".format(viewingptname, int(userinput) if userinput.isdecimal() else userinput, config.version)
+                filename = "{0}-{1}-{0} {1}-Unlocked-{2}".format(viewingptname, userinput, config.version)
                 if renpy.can_load(filename):
                     raise Exception("Error: File \"{}\" already exists".format(filename))
                 renpy.save(filename)
                 MakePtLast()
             elif targetaction == "changeslotname":
                 # Update 'slotdetails' with 'userinput', then reflect any changes to the relevant disk file
-                slotdetails[3] = userinput
+                slotdetails[2] = userinput
                 ReflectSlotChanges()
             else:
                 raise Exception("Error: 'userinput' ({}) sent to an invalid 'targetaction' ({})".format(userinput, targetaction))
-            userinput, targetaction, = "", ""
+            userinput, targetaction = "", ""
 
 
 # [ SCREENS ]
@@ -397,7 +386,6 @@ screen load():
 
 # The new playthrough system
 screen playthrough_file_slots(title):
-    # TODO: Metrics may need to be tested for and adjusted here, in case people have altered the text size via Preferences or Accessibility. This may require 'gui.rebuild()', which would suck
     python:
         # Make sure we're accessing the global variables
         global viewingptname, viewingpt
@@ -413,6 +401,7 @@ screen playthrough_file_slots(title):
                 textsize = smallscreentextsize
                 # Enlarge text size if player is using a small screen
             yvalue = int(textsize * 1.5 * lastknownaccessibilityscale)
+            # Rebuild styles. Not considered best practice, but works
             gui.rebuild()
         # Check the validity of the playthrough name that we're viewing. If invalid, find the latest valid name. If none found, set 'viewingptname' to an empty string
         if ((config.has_autosave and viewingptname == "auto") or (config.has_quicksave and viewingptname == "quick") or (persistent.playthroughslist and viewingptname in persistent.playthroughslist)) == False:
@@ -495,22 +484,23 @@ screen playthrough_file_slots(title):
                                 # NOTE: Square-bracket string interpolation cannot be meaningfully used with a binding used to hold the return from '__next__()'; they will all show the last value
                                 side "l c r":
                                     # Rename button at the left, if we're dealing with the selected playthrough
-                                    button:
+                                    fixed:
                                         xysize (yvalue, yvalue)
-                                        action None # Start with an empty, SIZED button and no action, then populate it if it's the current playthrough AND the functionality has not been diasbled
                                         if enable_renaming and persistent.playthroughslist[i] == viewingptname:
-                                            tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
-                                            style_prefix "icon"
-                                            text icon_rename
-                                            action [SetVariable("targetaction", "changeplaythroughname"),
-                                                    Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
-                                                    AwaitUserInput()]
+                                            button:
+                                                xysize (yvalue, yvalue)
+                                                tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
+                                                style_prefix "icon"
+                                                text icon_rename
+                                                action [SetVariable("targetaction", "changeplaythroughname"),
+                                                        Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
+                                                        AwaitUserInput()]
                                     # Playthrough selection button in the center
                                     button:
                                         tooltip "Show Slots in the \"{}\" Playthrough".format(persistent.playthroughslist[i])
                                         style "selection_button"
                                         xysize (1.0, yvalue)
-                                        at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)     # This keeps the contents inside the box by cropping anything outside of it off
+                                        at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                                         text " {} ".format(persistent.playthroughslist[i]):
                                             layout "nobreak"
                                             hover_color hovercolor
@@ -519,27 +509,29 @@ screen playthrough_file_slots(title):
                                         action [SetVariable("viewingptname", persistent.playthroughslist[i]),
                                                 SetVariable("viewingpt", Playthrough(name=persistent.playthroughslist[i]))]
                                     # Delete button at the right, if we're dealing with the selected playthrough
-                                    button:
+                                    fixed:
                                         xysize (yvalue, yvalue)
-                                        action None # As above
                                         if persistent.playthroughslist[i] == viewingptname:
-                                            tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
-                                            style_prefix "icon"
-                                            text icon_delete
-                                            action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
+                                            button:
+                                                xysize (yvalue, yvalue)
+                                                tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
+                                                style_prefix "icon"
+                                                text icon_delete
+                                                action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
 # >>>   \/ \/ \/ REMOVE FROM FINAL BUILD!!! \/ \/ \/   <<<
                             # Test playthroughs for layout verification - Status: CURRENT, GOOD
                             if testplaythroughlistsize:
                                 for i in range(1, 51, 1):
                                     side "l c r":
-                                        button:
+                                        fixed:
                                             xysize (yvalue, yvalue)
-                                            action None
-                                            if enable_renaming:
-                                                tooltip "Rename the \"{}\" Playthrough".format(i)
-                                                style_prefix "icon"
-                                                text icon_rename
-                                                action NullAction()
+                                            if enable_renaming and testallbuttons:
+                                                button:
+                                                    xysize (yvalue, yvalue)
+                                                    tooltip "Rename the \"{}\" Playthrough".format(i)
+                                                    style_prefix "icon"
+                                                    text icon_rename
+                                                    action NullAction()
                                         button:
                                             tooltip "Show Slots in the \"{}\" Playthrough".format(i)
                                             style "selection_button"
@@ -552,14 +544,15 @@ screen playthrough_file_slots(title):
                                                 color textcolor
                                                 at hovermarquee
                                             action NullAction()
-                                        button:
+                                        fixed:
                                             xysize (yvalue, yvalue)
-                                            action None
-                                            if True:
-                                                tooltip "Delete the \"{}\" Playthrough".format(i)
-                                                style_prefix "icon"
-                                                text icon_delete
-                                                action NullAction()
+                                            if testallbuttons:
+                                                button:
+                                                    xysize (yvalue, yvalue)
+                                                    tooltip "Delete the \"{}\" Playthrough".format(i)
+                                                    style_prefix "icon"
+                                                    text icon_delete
+                                                    action NullAction()
 # >>>   /\ /\ /\ END REMOVAL SECTION /\ /\ /\   <<<
                 # Fileslots panel
                 vbox:
@@ -631,8 +624,7 @@ screen playthrough_file_slots(title):
                                 for slot in viewingpt.slots:
                                     # ...deconstruct the list...
                                     python:
-                                        filename, lastmodified, slotnumber, versionnumber, editablename, lockedstatus = slot
-                                        slotnumber = int(slotnumber) if slotnumber.isdecimal() else 0 # TODO: This needs proper error handling, as do other instances of this
+                                        filename, lastmodified, slotnumber, editablename, lockedstatus, versionnumber = slot
                                         slotname = editablename if enable_renaming and editablename else "{} {}".format(viewingptname, slotnumber if slotnumber else "[[{} to {}]".format(lastmodified, versionnumber))
                                         slottextcolor = textcolor # Reset this each time, since the last time through might have made it 'insensitivecolor'
                                     # ...and turn it into a slotbutton with details and sub-buttons
@@ -671,7 +663,7 @@ screen playthrough_file_slots(title):
                                             background slotbackground
                                             hover_foreground slotforeground
                                             action [MakePtLast,
-                                                    If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{:05}-{}-{}-Unlocked".format(viewingptname, slotnumber, config.version, editablename) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
+                                                    If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
                                             if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                                                 key "save_delete" action FileDelete(filename, slot=True)
                                             if enable_versioning and versionnumber != "" and versionnumber != config.version:
@@ -684,6 +676,7 @@ screen playthrough_file_slots(title):
                                                 # Thumbnail on the left. Setting it as a background to a frame permits regular content to appear overlaid, if needed
                                                 frame:
                                                     xysize (config.thumbnail_width, slotheight) # TODO: This will result in bad positioning if slotheight != config.thumbnail_height. Fix it.
+                                                    align (0.5, 0.5) # TODO: This should fix the above-mentioned issue. Test it.
                                                     background FileScreenshot(filename, slot=True)
                                                     # Grey out the thumbnail if versioning is enabled, the version number is known, and it doesn't match the current version
                                                     if enable_versioning and versionnumber != "" and versionnumber != config.version:
@@ -735,7 +728,7 @@ screen playthrough_file_slots(title):
                                                                     style_prefix "icon"
                                                                     text icon_rename
                                                                     action [SetVariable("targetaction", "changeslotname"),
-                                                                            SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, lockedstatus]),
+                                                                            SetVariable("slotdetails", [filename, slotnumber, editablename, lockedstatus, versionnumber]),
                                                                             Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
                                                                             AwaitUserInput()]
                                                             if enable_locking and lockedstatus:
@@ -744,7 +737,7 @@ screen playthrough_file_slots(title):
                                                                     style_prefix "icon"
                                                                     text (icon_locked if lockedstatus == "LOCKED" else icon_unlocked)
                                                                     # .format("{image=icon_locked}" if lockedstatus == "LOCKED" else "{image=icon_unlocked}")
-                                                                    action [SetVariable("slotdetails", [filename, "{:05}".format(slotnumber), versionnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED"]),
+                                                                    action [SetVariable("slotdetails", [filename, slotnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED", versionnumber]),
                                                                             ReflectSlotChanges]
                                                             if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                                                                 button:
