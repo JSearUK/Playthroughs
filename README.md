@@ -1,7 +1,7 @@
 # Ren-Py-Playthroughs-Save-System
 
 ## [ INTRODUCTION ]
-- This package overrides the 'fileslots(title)' screen, defining classes, functions, transitions and styling to support augmented functionality
+- This package overrides the `save():` and `load():` screens, defining classes, functions, transitions and styling to support augmented functionality
 - The primary purpose is to provide an alternative, playthrough-style save/load system, whilst retaining access to the original system and files
 
 ---
