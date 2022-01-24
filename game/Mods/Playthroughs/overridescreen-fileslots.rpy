@@ -1,12 +1,8 @@
 # [ DEBUG TOGGLES - REMOVE ALL CODE REFERENCING THESE BINDINGS ]
 define config.developer = True
 define testplaythroughlistsize = False
+define testplaythroughlistcount = 50
 define testallbuttons = False
-    # TODO: The more buttons (and viewports?) onscreen, the more sluggish the UI gets. Attempt to optimise (especially for phones?)
-        # NOTE: Removing the viewports from the Playthrough list didn't improve anything. It has to be the buttons..?
-        # NOTE: It could also be us dipping in and out of AwaitUserInput() at 300+Hz, although I doubt it. Worth checking... somehow
-        # NOTE: Having buttons spawn only when needed appears to help. The same problem occurs with high numbers of slots, as well as Playthroughs. Slot redesign definitely needed
-        # NOTE: ...although: try turning prediction off for this screen?
 
 
 # [ NEXT TASKS ]
@@ -17,6 +13,7 @@ define testallbuttons = False
 # - Consider Slotbutton redesign to accomodate mobile devices more easily NOTE: This is becoming more and more of a priority.
 #   - [EDIT:] This may fix the Roald Dahl bug. Remember to simplify, and to use 'side "":'
 #   - [EDIT:] Check that the vscrollbar in the name viewport has no right-hand spacing if it's up against the edge of the slot
+# - Investigate if restructuring the qurey screens will improve text input when above a background with many buttons
 # - Streamline and triple-check styles are behaving correctly
 # - Investigate and solve the '.isdecimal()' issue noted when dropping the package into older games
 #   - [EDIT:] Oscar seemd to solve this by testing against 'not'. I look, and that's already there. This may be a non-issue - check later
@@ -110,6 +107,9 @@ init python:
         slotforeground = renpy.displayable(Frame(Transform(pathoffset + "gui/emptyframe.png", matrixcolor = ColorizeMatrix(Color("#000"), Color(textcolor))))) # Match the UI color
         # This is what is shown over the top of the hovered/selected  slot, and can be any Displayable or None. Either hard-code it, or use a binding defined at a lower init level
         # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
+    slotbackground = None
+        # This is what is shown behind each slot, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")). Could be changed by later code e.g. per screen
+        # - NOTE: None is the default, removing the background, resulting in total transparency
     symboltext = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
         # Locates a font file containing the glyphs we will use instead of image-based icons, below
             # To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2
@@ -124,9 +124,7 @@ init python:
     icon_sortbynumber     = "#"     # Alternates: 𝍸 #
     icon_sortbylocked     = "🔒"    # Alternates: 🔒
     icon_sortbyversion    = "⚠"     # Alternates: ⭭ 🗓 ⚠
-default slotbackground = None
-    # This is what is shown behind each slot, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")). Could be changed by later code e.g. per screen
-    # - NOTE: None is the default, removing the background, resulting in total transparency
+
 
 
 # [ STYLING ]
@@ -202,6 +200,8 @@ init python:
             # - This particular regex says that we want matches that: "^"(begins with) + (self.name(the name field of this object) + "-"(to avoid unwanted partial matches))
             files, slots = renpy.list_saved_games("^" + self.name + "-", fast=True), []
             # TODO: If we wind up having to get all the thumbnails to populate the Slots in the vbox anyway, we may as well do it all at once...
+            #   - Looks like it. (https://www.renpy.org/doc/html/save_load_rollback.html#renpy.list_saved_games)
+            #   - Consider adding a timed "Processing... bar" WARNING: *** FIRST! Test if the thumbnails or the buttons are the holdup! ***
             # - We need a slot structure:
             #   - Filename          : Full string as used by Ren'Py file functions
             #   - Last modified     : UNIX epoch offset     - WARNING: Ren'Py file renaming preserves the OS timestamp on Windows. It may not on other systems
@@ -474,85 +474,86 @@ screen playthrough_file_slots(title):
                                         AwaitUserInput()]
                     null height layoutseparator
                     # Vertically-scrolling viewport for the list of Playthroughs
-                    viewport:
+                    vpgrid:
+                        cols 1
                         scrollbars "vertical"
                         mousewheel True
+                        side_spacing layoutseparator
                         spacing layoutseparator
-                        vbox:
-                            for i in range(len(persistent.playthroughslist) - 1, -1, -1):
-                                # Using a side allows us to use xfill True or xsize 1.0 for the central button, without compromising the size of any end buttons or having to calculate around them
-                                # NOTE: Square-bracket string interpolation cannot be meaningfully used with a binding used to hold the return from '__next__()'; they will all show the last value
+                        for i in range(len(persistent.playthroughslist) - 1, -1, -1):
+                            # Using a side allows us to use xfill True or xsize 1.0 for the central button, without compromising the size of any end buttons or having to calculate around them
+                            # NOTE: Square-bracket string interpolation cannot be meaningfully used with a binding used to hold the return from '__next__()'; they will all show the last value
+                            side "l c r":
+                                # Rename button at the left, if we're dealing with the selected playthrough
+                                fixed:
+                                    xysize (yvalue, yvalue)
+                                    if enable_renaming and persistent.playthroughslist[i] == viewingptname:
+                                        button:
+                                            tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
+                                            style_prefix "icon"
+                                            xysize (yvalue, yvalue)
+                                            text icon_rename
+                                            action [SetVariable("targetaction", "changeplaythroughname"),
+                                                    Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
+                                                    AwaitUserInput()]
+                                # Playthrough selection button in the center
+                                button:
+                                    tooltip "Show Slots in the \"{}\" Playthrough".format(persistent.playthroughslist[i])
+                                    style "selection_button"
+                                    xysize (1.0, yvalue)
+                                    at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
+                                    text " {} ".format(persistent.playthroughslist[i]):
+                                        layout "nobreak"
+                                        hover_color hovercolor
+                                        color (hovercolor if persistent.playthroughslist[i] == viewingptname else textcolor)
+                                        at hovermarquee
+                                    action [SetVariable("viewingptname", persistent.playthroughslist[i]),
+                                            SetVariable("viewingpt", Playthrough(name=persistent.playthroughslist[i]))]
+                                # Delete button at the right, if we're dealing with the selected playthrough
+                                fixed:
+                                    xysize (yvalue, yvalue)
+                                    if persistent.playthroughslist[i] == viewingptname:
+                                        button:
+                                            tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
+                                            style_prefix "icon"
+                                            xysize (yvalue, yvalue)
+                                            text icon_delete
+                                            action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
+# >>>   \/ \/ \/ REMOVE FROM FINAL BUILD!!! \/ \/ \/   <<<
+                        # Test playthroughs for layout verification - Status: CURRENT, GOOD
+                        if testplaythroughlistsize:
+                            for i in range(1, testplaythroughlistcount + 1, 1):
                                 side "l c r":
-                                    # Rename button at the left, if we're dealing with the selected playthrough
                                     fixed:
                                         xysize (yvalue, yvalue)
-                                        if enable_renaming and persistent.playthroughslist[i] == viewingptname:
+                                        if enable_renaming and testallbuttons:
                                             button:
-                                                xysize (yvalue, yvalue)
-                                                tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
+                                                tooltip "Rename the \"{}\" Playthrough".format(i)
                                                 style_prefix "icon"
+                                                xysize (yvalue, yvalue)
                                                 text icon_rename
-                                                action [SetVariable("targetaction", "changeplaythroughname"),
-                                                        Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name:{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
-                                                        AwaitUserInput()]
-                                    # Playthrough selection button in the center
+                                                action NullAction()
                                     button:
-                                        tooltip "Show Slots in the \"{}\" Playthrough".format(persistent.playthroughslist[i])
+                                        tooltip "Show Slots in the \"{}\" Playthrough".format(i)
                                         style "selection_button"
                                         xysize (1.0, yvalue)
                                         at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
-                                        text " {} ".format(persistent.playthroughslist[i]):
+                                        text " {} ".format(i):
                                             layout "nobreak"
                                             hover_color hovercolor
-                                            color (hovercolor if persistent.playthroughslist[i] == viewingptname else textcolor)
+                                            selected_color hovercolor
+                                            color textcolor
                                             at hovermarquee
-                                        action [SetVariable("viewingptname", persistent.playthroughslist[i]),
-                                                SetVariable("viewingpt", Playthrough(name=persistent.playthroughslist[i]))]
-                                    # Delete button at the right, if we're dealing with the selected playthrough
+                                        action NullAction()
                                     fixed:
                                         xysize (yvalue, yvalue)
-                                        if persistent.playthroughslist[i] == viewingptname:
+                                        if testallbuttons:
                                             button:
-                                                xysize (yvalue, yvalue)
-                                                tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
+                                                tooltip "Delete the \"{}\" Playthrough".format(i)
                                                 style_prefix "icon"
+                                                xysize (yvalue, yvalue)
                                                 text icon_delete
-                                                action Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked Slots: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSlots from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
-# >>>   \/ \/ \/ REMOVE FROM FINAL BUILD!!! \/ \/ \/   <<<
-                            # Test playthroughs for layout verification - Status: CURRENT, GOOD
-                            if testplaythroughlistsize:
-                                for i in range(1, 51, 1):
-                                    side "l c r":
-                                        fixed:
-                                            xysize (yvalue, yvalue)
-                                            if enable_renaming and testallbuttons:
-                                                button:
-                                                    xysize (yvalue, yvalue)
-                                                    tooltip "Rename the \"{}\" Playthrough".format(i)
-                                                    style_prefix "icon"
-                                                    text icon_rename
-                                                    action NullAction()
-                                        button:
-                                            tooltip "Show Slots in the \"{}\" Playthrough".format(i)
-                                            style "selection_button"
-                                            xysize (1.0, yvalue)
-                                            at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
-                                            text " {} ".format(i):
-                                                layout "nobreak"
-                                                hover_color hovercolor
-                                                selected_color hovercolor
-                                                color textcolor
-                                                at hovermarquee
-                                            action NullAction()
-                                        fixed:
-                                            xysize (yvalue, yvalue)
-                                            if testallbuttons:
-                                                button:
-                                                    xysize (yvalue, yvalue)
-                                                    tooltip "Delete the \"{}\" Playthrough".format(i)
-                                                    style_prefix "icon"
-                                                    text icon_delete
-                                                    action NullAction()
+                                                action NullAction()
 # >>>   /\ /\ /\ END REMOVAL SECTION /\ /\ /\   <<<
                 # Fileslots panel
                 vbox:
@@ -566,6 +567,7 @@ screen playthrough_file_slots(title):
                     if enable_sorting and viewingptname and viewingptname != "auto" and viewingptname != "quick":
                         hbox:
                             # TODO: Streamline styling... again
+                            # TODO: Er. This can become a loop through a list of lists
                             ysize yvalue
                             text "Sort by: "
                             button:
@@ -601,7 +603,7 @@ screen playthrough_file_slots(title):
                                             viewingpt.SortSlots]
                             if enable_versioning:
                                 button:
-                                    tooltip "Sort slots by lowest version number"
+                                    tooltip "Sort slots by lowest version number first"
                                     style_prefix "icon"
                                     selected_background textcolor
                                     hover_background None
@@ -611,140 +613,140 @@ screen playthrough_file_slots(title):
                                     action [SetVariable("persistent.sortby", "versionnumber"),
                                             viewingpt.SortSlots]
                         null height layoutseparator
-                    # Vertically-scrolling viewport for the slotslist
-                    viewport:
-                        scrollbars "vertical"
-                        mousewheel True
-                        spacing layoutseparator # This separates the slots from the vertical scrollbar
-                        vbox:
-                            spacing layoutseparator # This separates the slots from each other
-                            # Display all the fileslots that are in the playthrough being viewed, keyed off 'viewingptname'. If no playthrough is being viewed, display nothing
-                            if viewingptname != "":
-                                # For each slot in the Playthrough...
-                                for slot in viewingpt.slots:
-                                    # ...deconstruct the list...
-                                    python:
-                                        filename, lastmodified, slotnumber, editablename, lockedstatus, versionnumber = slot
-                                        slotname = editablename if enable_renaming and editablename else "{} {}".format(viewingptname, slotnumber if slotnumber else "[[{} to {}]".format(lastmodified, versionnumber))
-                                        slottextcolor = textcolor # Reset this each time, since the last time through might have made it 'insensitivecolor'
-                                    # ...and turn it into a slotbutton with details and sub-buttons
-                                    # Handle any slot which has been inserted into the list for the purpose of creating a new save, and therefore is not yet a disk file:
-                                    if filename == "+ New Save +":
-                                        # Only produce the button if we're on the Save screen
-                                        # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code...
-                                        if title == "Save":
-                                            textbutton "+ New Save +":
-                                                tooltip "Create a new save: {}".format(slotname)
-                                                xysize (1.0, slotheight)
-                                                text_align (0.5, 0.5)
-                                                background slotbackground
-                                                hover_foreground slotforeground
-                                                action [SetVariable("targetaction", "newslotnumber"),
-                                                        If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+interfacecolor+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor)),
-                                                        AwaitUserInput()]
-                                    # Disable any slot that has a version number higher than this app; loading will likely fail and overwriting will likely lose data
-                                    # TODO: This doesn't actually need to be a button. It might or might not be simpler for it not to be.
-                                    # - NOTE: In theory, 'versionnumber' could be type int. However, that should only happen if 'filename' == "+ New Save +" - which is already handled, above
-                                    #   - TODO: I'd be happier if we weren't using variables for more than one purpose. Look into restructuring 'slot'
-                                    elif versionnumber.lower() > config.version.lower():
-                                        if enable_versioning:
-                                            textbutton "{} - Version {}".format(editablename, versionnumber):
-                                                sensitive False
-                                                xysize (1.0, slotheight)
-                                                text_align (0.5, 0.5)
-                                                background slotbackground
-                                                action None
-                                    # Everything else should all be pre-existing disk files that need to be shown
-                                    else:
-                                        button:
-                                            # TODO: Setting up the inside of this button - all slot buttons - may help fix the Roald Dahl problem, and possibly make the UI faster/more elegant
-                                            tooltip "{} {}".format("Load" if title == "Load" else "Overwrite", slotname)
+                    # Display all the fileslots that are in the playthrough being viewed, keyed off 'viewingptname'. If no playthrough is being viewed, display nothing
+                    if viewingptname != "":
+                        # Vertically-scrolling vpgrid for the slotslist
+                        vpgrid:
+                            scrollbars "vertical"
+                            mousewheel True
+                            side_spacing layoutseparator
+                            spacing layoutseparator
+                            cols 1
+                            # For each slot in the Playthrough...
+                            for slot in viewingpt.slots:
+                                # ...deconstruct the list...
+                                python:
+                                    filename, lastmodified, slotnumber, editablename, lockedstatus, versionnumber = slot
+                                    slotname = editablename if enable_renaming and editablename else "{} {}".format(viewingptname, slotnumber if slotnumber else "[[{} to {}]".format(lastmodified, versionnumber))
+                                    slottextcolor = textcolor # Reset this each time, since the last time through might have made it 'insensitivecolor'
+                                # ...and turn it into a slotbutton with details and sub-buttons
+                                # Handle any slot which has been inserted into the list for the purpose of creating a new save, and therefore is not yet a disk file:
+                                if filename == "+ New Save +":
+                                    # Only produce the button if we're on the Save screen
+                                    # - NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code...
+                                    if title == "Save":
+                                        textbutton "+ New Save +":
+                                            tooltip "Create a new save: {}".format(slotname)
                                             xysize (1.0, slotheight)
+                                            text_align (0.5, 0.5)
                                             background slotbackground
                                             hover_foreground slotforeground
-                                            action [MakePtLast,
-                                                    If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
-                                            if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
-                                                key "save_delete" action FileDelete(filename, slot=True)
-                                            if enable_versioning and versionnumber != "" and versionnumber != config.version:
-                                                tooltip "{} {}".format("Attempt to load" if title == "Load" else "Overwrite", slotname)
-                                            if title == "Save" and (viewingptname == "auto" or (enable_locking and lockedstatus == "LOCKED")):
-                                                sensitive False
-                                                $ slottextcolor = insensitivecolor
-                                                    # TODO: Test if needed, since we're already setting "sensitive False" - but may be needed to comply with color overrides at top
-                                            hbox:
-                                                # Thumbnail on the left. Setting it as a background to a frame permits regular content to appear overlaid, if needed
-                                                frame:
-                                                    xysize (config.thumbnail_width, slotheight) # TODO: This will result in bad positioning if slotheight != config.thumbnail_height. Fix it.
-                                                    align (0.5, 0.5) # TODO: This should fix the above-mentioned issue. Test it.
-                                                    background FileScreenshot(filename, slot=True)
-                                                    # Grey out the thumbnail if versioning is enabled, the version number is known, and it doesn't match the current version
-                                                    if enable_versioning and versionnumber != "" and versionnumber != config.version:
-                                                        add Solid("#000000CF")
-                                                        vbox:
-                                                            at truecenter
-                                                            text "- Older Save -":
-                                                                style "fileslots_focus"
-                                                                size gui.slot_button_text_size
-                                                                xalign 0.5
-                                                            null height gui.slot_button_text_size
-                                                            text "v{}".format(versionnumber):
-                                                                style "fileslots_focus"
-                                                                size gui.slot_button_text_size
-                                                                xalign 0.5
-                                                null width layoutseparator
-                                                viewport:
-                                                    scrollbars "vertical"
-                                                    mousewheel "change"
-                                                    align (0.5, 0.5)
-                                                    xmaximum 0.98
-                                                    ymaximum 0.99
+                                            action [SetVariable("targetaction", "newslotnumber"),
+                                                    If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query="{color="+interfacecolor+"}Please select a slot number:{/color}", preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor)),
+                                                    AwaitUserInput()]
+                                # Disable any slot that has a version number higher than this app; loading will likely fail and overwriting will likely lose data
+                                # TODO: This doesn't actually need to be a button. It might or might not be simpler for it not to be.
+                                # - NOTE: In theory, 'versionnumber' could be type int. However, that should only happen if 'filename' == "+ New Save +" - which is already handled, above
+                                #   - TODO: I'd be happier if we weren't using variables for more than one purpose. Look into restructuring 'slot'
+                                elif versionnumber.lower() > config.version.lower():
+                                    if enable_versioning:
+                                        textbutton "{} - Version {}".format(editablename, versionnumber):
+                                            sensitive False
+                                            xysize (1.0, slotheight)
+                                            text_align (0.5, 0.5)
+                                            background slotbackground
+                                            action None
+                                # Everything else should all be pre-existing disk files that need to be shown
+                                else:
+                                    button:
+                                        # TODO: Setting up the inside of this button - all slot buttons - may help fix the Roald Dahl problem, and possibly make the UI faster/more elegant
+                                        tooltip "{} {}".format("Load" if title == "Load" else "Overwrite", slotname)
+                                        xysize (1.0, slotheight)
+                                        background slotbackground
+                                        hover_foreground slotforeground
+                                        action [MakePtLast,
+                                                If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version) if viewingptname != "auto" and viewingptname != "quick" else "{}-{}".format(viewingptname, slotnumber), slot=True))]
+                                        if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
+                                            key "save_delete" action FileDelete(filename, slot=True)
+                                        if enable_versioning and versionnumber != "" and versionnumber != config.version:
+                                            tooltip "{} {}".format("Attempt to load" if title == "Load" else "Overwrite", slotname)
+                                        if title == "Save" and (viewingptname == "auto" or (enable_locking and lockedstatus == "LOCKED")):
+                                            sensitive False
+                                            $ slottextcolor = insensitivecolor
+                                                # TODO: Test if needed, since we're already setting "sensitive False" - but may be needed to comply with color overrides at top
+                                        hbox:
+                                            # Thumbnail on the left. Setting it as a background to a frame permits regular content to appear overlaid, if needed
+                                            frame:
+                                                xysize (config.thumbnail_width, slotheight) # TODO: This will result in bad positioning if slotheight != config.thumbnail_height. Fix it.
+                                                align (0.5, 0.5) # TODO: This should fix the above-mentioned issue. Test it.
+                                                background FileScreenshot(filename, slot=True)
+                                                # Grey out the thumbnail if versioning is enabled, the version number is known, and it doesn't match the current version
+                                                if enable_versioning and versionnumber != "" and versionnumber != config.version:
+                                                    add Solid("#000000CF")
                                                     vbox:
-                                                        align (0.5, 0.5)
-                                                        xfill True # TODO: Check to see if this solves the Roald Dahl problem
-                                                        viewport:
-                                                            # Putting the slotname in its own box helps us to handle 'editablename's that exceed the space they're given without breaking the layout
-                                                            edgescroll (100, 500) #mousewheel "horizontal-change"
-                                                            xfill False # TODO: Check to see if this solves the Roald Dahl problem
-                                                            align (0.5, 0.5)
-                                                            text "{}".format(slotname):
-                                                                color slottextcolor
-                                                                align (0.5, 0.5)
-                                                                text_align 0.5
-                                                                layout "subtitle"
-                                                        null height layoutseparator
-                                                        text "{}".format(FileTime(filename, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True)):
-                                                            xalign 0.5
+                                                        at truecenter
+                                                        text "- Older Save -":
+                                                            style "fileslots_focus"
                                                             size gui.slot_button_text_size
-                                                            color slottextcolor
-                                                        null height layoutseparator
-                                                        # Icon buttons
-                                                        hbox:
                                                             xalign 0.5
-                                                            # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
-                                                            if enable_renaming and editablename and (enable_locking == False or (enable_locking and lockedstatus != "LOCKED")):
-                                                                button:
-                                                                    tooltip "Rename {}".format(slotname)
-                                                                    style_prefix "icon"
-                                                                    text icon_rename
-                                                                    action [SetVariable("targetaction", "changeslotname"),
-                                                                            SetVariable("slotdetails", [filename, slotnumber, editablename, lockedstatus, versionnumber]),
-                                                                            Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
-                                                                            AwaitUserInput()]
-                                                            if enable_locking and lockedstatus:
-                                                                button:
-                                                                    tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
-                                                                    style_prefix "icon"
-                                                                    text (icon_locked if lockedstatus == "LOCKED" else icon_unlocked)
-                                                                    # .format("{image=icon_locked}" if lockedstatus == "LOCKED" else "{image=icon_unlocked}")
-                                                                    action [SetVariable("slotdetails", [filename, slotnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED", versionnumber]),
-                                                                            ReflectSlotChanges]
-                                                            if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
-                                                                button:
-                                                                    tooltip "Delete {}".format(slotname)
-                                                                    style_prefix "icon"
-                                                                    text icon_delete
-                                                                    action FileDelete(filename, slot=True)
+                                                        null height gui.slot_button_text_size
+                                                        text "v{}".format(versionnumber):
+                                                            style "fileslots_focus"
+                                                            size gui.slot_button_text_size
+                                                            xalign 0.5
+                                            null width layoutseparator
+                                            viewport:
+                                                scrollbars "vertical"
+                                                mousewheel "change"
+                                                align (0.5, 0.5)
+                                                xmaximum 0.98
+                                                ymaximum 0.99
+                                                vbox:
+                                                    align (0.5, 0.5)
+                                                    xfill True # TODO: Check to see if this solves the Roald Dahl problem
+                                                    viewport:
+                                                        # Putting the slotname in its own box helps us to handle 'editablename's that exceed the space they're given without breaking the layout
+                                                        edgescroll (100, 500) #mousewheel "horizontal-change"
+                                                        xfill False # TODO: Check to see if this solves the Roald Dahl problem
+                                                        align (0.5, 0.5)
+                                                        text "{}".format(slotname):
+                                                            color slottextcolor
+                                                            align (0.5, 0.5)
+                                                            text_align 0.5
+                                                            layout "subtitle"
+                                                    null height layoutseparator
+                                                    text "{}".format(FileTime(filename, format=_("{#file_time}%A, %B %d %Y, %H:%M"), slot=True)):
+                                                        xalign 0.5
+                                                        size gui.slot_button_text_size
+                                                        color slottextcolor
+                                                    null height layoutseparator
+                                                    # Icon buttons
+                                                    hbox:
+                                                        xalign 0.5
+                                                        # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
+                                                        if enable_renaming and editablename and (enable_locking == False or (enable_locking and lockedstatus != "LOCKED")):
+                                                            button:
+                                                                tooltip "Rename {}".format(slotname)
+                                                                style_prefix "icon"
+                                                                text icon_rename
+                                                                action [SetVariable("targetaction", "changeslotname"),
+                                                                        SetVariable("slotdetails", [filename, slotnumber, editablename, lockedstatus, versionnumber]),
+                                                                        Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground=Frame("gui/frame.png"), styleprefix="fileslots", tcolor=focuscolor),
+                                                                        AwaitUserInput()]
+                                                        if enable_locking and lockedstatus:
+                                                            button:
+                                                                tooltip "{} {}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname)
+                                                                style_prefix "icon"
+                                                                text (icon_locked if lockedstatus == "LOCKED" else icon_unlocked)
+                                                                # .format("{image=icon_locked}" if lockedstatus == "LOCKED" else "{image=icon_unlocked}")
+                                                                action [SetVariable("slotdetails", [filename, slotnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED", versionnumber]),
+                                                                        ReflectSlotChanges]
+                                                        if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
+                                                            button:
+                                                                tooltip "Delete {}".format(slotname)
+                                                                style_prefix "icon"
+                                                                text icon_delete
+                                                                action FileDelete(filename, slot=True)
 
 
 # [ ADDITIONAL SCREENS ]
