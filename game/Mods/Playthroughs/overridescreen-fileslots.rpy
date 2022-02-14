@@ -68,6 +68,8 @@ define layoutseparator = 5
     # The spacing between UI elements of the Playthrough save screen, in whole pixels
 define smallscreentextsize = 52
     # Hardcoded minimum text size for small screen devices such as smartphones
+define scrollbarsize = smallscreentextsize if renpy.variant("mobile") else gui.scrollbar_size
+    # Adjust thickness of scrollbars for the same reason
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define focuscolor = "#FFF"
@@ -82,7 +84,7 @@ init python:
     SetMetrics()
     # Set the background for Slots. This is what is shown behind each slot and, as above, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")) or None (removing it entirely)
         # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
-    slotbackground = Solid("#FFF1") # renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Solid("#FFF1") #
+    slotbackground = Solid("#FFF1") # renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Solid("#FFF1") # 
     # Set the foreground for Slots, indicating when they have focus. It can be any Displayable, or None. If ColorizeMatrix is available, we can tint it to match the Dev's UI color scheme
     # Test for the existence of 'ColorizeMatrix', without running it:
     try:
@@ -142,6 +144,7 @@ style fileslots_viewport is fileslots:
     xfill True
 style fileslots_vscrollbar:
     unscrollable "hide"
+    xsize scrollbarsize
 
 
 # [ TRANSFORMS ]
@@ -418,7 +421,11 @@ screen playthrough_file_slots(title):
                 # Collect and display any active tooltip on this page
                 $ help = GetTooltip()
                 if help:
-                    text help at marquee(len(help)) style "fileslots_focus" layout "nobreak" italic True
+                    text help:
+                        at marquee(len(help))
+                        style "fileslots_focus"
+                        layout "nobreak"
+                        italic True
             # Two panels, side-by-side in an hbox: Playthroughs and Slots
             hbox:
                 spacing int(layoutseparator * 2)
@@ -429,7 +436,7 @@ screen playthrough_file_slots(title):
                     text "Playthroughs":
                         size gui.label_text_size
                         color interfacecolor
-                        xalign 0.5xoffset -round((gui.scrollbar_size + layoutseparator) / 2)
+                        xalign 0.5xoffset -round((scrollbarsize + layoutseparator) / 2)
                     null height layoutseparator
                     # Display top panel, which contains 1-4 buttons
                     use display_top_buttons(title)
@@ -473,7 +480,7 @@ screen display_top_buttons(title=None):
         hbox:
             ysize yvalue
             xalign 0.5
-            xoffset -round((gui.scrollbar_size + layoutseparator) / 2)
+            xoffset -round((scrollbarsize + layoutseparator) / 2)
             # Provide a button to switch to the original save system
             button:
                 tooltip "Switch to the Ren'Py [title] system"
@@ -706,7 +713,7 @@ screen display_slot_button(slot=None, title=None):
                         xysize (1.0, 1.0)
                         at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                         text slotname:
-                            at ((scroll(len(slotname)) if yvalue > 90 else marquee(len(slotname))) if hasfocus else None)
+                            at ((scroll(len(slotname)) if yvalue > 86 else marquee(len(slotname))) if hasfocus else None)
                             color (hovercolor if hasfocus else slottextcolor)
                             align (0.5, 0.5)
                             text_align 0.5
