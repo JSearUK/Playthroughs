@@ -1,15 +1,9 @@
 # [ DEBUG TOGGLES - REMOVE ALL CODE REFERENCING THESE BINDINGS ]
 define config.developer = True
+define feedback = ""
 
 
 # [ NEXT TASKS ]
-# - BUG: When a versioned (old) slot has focus:
-#   - Tooltip says overwrite (correct)
-#   - If no file exists with the same slotnumber(?), clicking creates a NEW save with the same slot number, and the current version number
-#   - If a file exists with the same slotnumber(?), clicking prompts the overwrite dialog - which may or may not overwrite that existing file (correctly, depending on user choice)
-#   - In either case, the versioned file still exists
-#   - [EDIT:] Logic error = filename handling in button action. Also, Playthrough gets promoted even if confirmation was declined
-#   - TODO: Handle overwriting manually, via 'AwaitUserInput()', 'slotdetails' and 'targetaction' ("overwriteslot"). Handle Confirm manually, using _return. Handle Playthrough promotion, too
 # - Streamline and triple-check styles are behaving correctly
 # - Get all mod variables into its own named store
 #   - [EDIT:] May not be needed. May not even be useful. Further research needed.
@@ -22,6 +16,7 @@ define pathoffset = "Mods/Playthroughs/"
 default persistent.save_system = "original"
 default persistent.sortby = "lastmodified"
 default persistent.playthroughslist = []
+default lastviewedptname = "0"
 default viewingptname = ""
 default viewingpt = []
 default userinput = ""
@@ -44,8 +39,6 @@ define enable_versioning = True
 define enable_renaming = True
     # This enables the player to provide/edit a friendly name for any existing Playthrough save
     # TODO: Test what happens when previously renamed slots run into 'enable_renaming = False'. They *should* be "playthroughname + slotnumber", yet preserve anything in 'editablename'
-    # TODO: For Ren'Py saves (excluding Auto/Quick), it shows an overlay/button on the slot that can be clicked on to provide a name for the new/overwritten slot
-    # - [EDIT:] This is on hold, for now
 define enable_locking = True
     # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, overwritten or deleted in-game
     # - NOTE: If there are locked files present when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved. This behaviour is correct.
@@ -69,7 +62,7 @@ define layoutseparator = 5
 define smallscreentextsize = 52
     # Hardcoded minimum text size for small screen devices such as smartphones
 define scrollbarsize = smallscreentextsize if renpy.variant("mobile") else gui.scrollbar_size
-    # Adjust thickness of scrollbars for the same reason
+    # Adjust thickness of vertical scrollbars for the same reason (this package does not use horizontal ones)
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define focuscolor = "#FFF"
@@ -84,7 +77,7 @@ init python:
     SetMetrics()
     # Set the background for Slots. This is what is shown behind each slot and, as above, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")) or None (removing it entirely)
         # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
-    slotbackground = Solid("#FFF1") # renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Solid("#FFF1") # 
+    slotbackground = renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Solid("#FFF1") #
     # Set the foreground for Slots, indicating when they have focus. It can be any Displayable, or None. If ColorizeMatrix is available, we can tint it to match the Dev's UI color scheme
     # Test for the existence of 'ColorizeMatrix', without running it:
     try:
@@ -99,6 +92,7 @@ init python:
     # - NOTE: To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2
     symboltext = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
     # Set the glyphs we will use for each icon
+    # TODO: Overhaul this to be a Dict. Overhaul code that references it to make use of the Dict
     icon_viewplaythroughs = "{color=" + focuscolor + "}𝌮{/color}" if enable_iconcolors else "𝌮" # 𝌮
     icon_viewrenpypages   = "{color=" + focuscolor + "}𝌅{/color}" if enable_iconcolors else "𝌅" # 𝌅
     icon_newplaythrough   = "{color=" + "#00FF00" + "}🞤{/color}" if enable_iconcolors else "🞤" # 🞤
@@ -113,7 +107,7 @@ init python:
 
 
 # [ STYLING ]
-    # TODO: Probably needs streamlining/cleanup after the change to glyphs from images - [EDIT:] *definitely* needs... investigate suffixes
+    # TODO: Redfine these to cover all UI styles, and nothing more
 style fileslots:
     padding (0, 0)
     margin (0, 0)
@@ -220,7 +214,8 @@ init python:
             # - NOTE: lambdas are disposable anonymous functions that use (an) input(s) to derive a required output. More here: (https://www.w3schools.com/python/python_lambda.asp)
             if sortby in ("versionnumber","lockedstatus"):
                 reverse = False
-                # TODO: Fix kludgey override above and make the button call the function with parameters - [EDIT:] NOTE: "Function(viewingpt.SortSlots, reverse=False)" not working
+                # TODO: Fix kludgey override above and make the button call the function with parameters
+                # - [EDIT:] NOTE: "Function(viewingpt.SortSlots, reverse=False)" not working - [EDIT:] NOTE: viewingpt.SortSlots(), or "viewingpt.SortSlots", or "viewingpt.SortSlots()", may.
             self.slots.sort(reverse=reverse, key=lambda x: x[sortkey])
             # If appropriate, add slots that define "+ New Save +" slots by position. Since "auto"/"quick" are hard-sorted by "lastmodified", this will not affect those 'playthrough's
             i = slotkeys.index("slotnumber")
@@ -268,8 +263,8 @@ init -1 python:
     def ResetPtVars(timeline=1.0):
         # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
-        global userinput, targetaction, viewingptname, viewingpt, slotdetails
-        userinput, targetaction, viewingptname, viewingpt, slotdetails = "", "", "", [], []
+        global userinput, targetaction, lastviewedptname, viewingptname, viewingpt, slotdetails
+        userinput, targetaction, lastviewedptname, viewingptname, viewingpt, slotdetails = "", "", "", "", [], []
         return 1.0
 
     def MakePtLast():
@@ -312,7 +307,7 @@ init -1 python:
     def AwaitUserInput():
         # This is an all-purpose function that is called whenever user-input is required to progress with an Action list; it defers the changes to be made until there is actually an input
         # - NOTE: I don't know how to make an action list wait for input and then resume; this is a workaround that calls this function once per screen update... I think
-            # TODO: Figure out if "call in new context" is the designed solution to this problem, and how to achieve it
+            # TODO: Figure out if "call in new context" is the designed solution to this problem, and how to achieve it - [EDIT:] The `Confirm()` action manages this. Must be doable.
         global userinput, targetaction, viewingptname, viewingpt, slotdetails
         # The first thing to do is quit out unless there is something that actually needs processing (redundant ... unless someone puts it into an 'action' list)
         if userinput:
@@ -394,8 +389,8 @@ screen switch_button(xpos=0.0, ypos=0.0):
 screen playthrough_file_slots(title):
     python:
         # Make sure we're accessing the global variables
-        global viewingptname, viewingpt, userinput
-        # Check whether the font size has changed, before we reach the 'style_prefix' line below
+        global lastviewedptname, viewingptname, viewingpt, userinput
+        # Check whether the font size has changed
         if preferences.font_size != lastknownaccessibilityscale or gui.text_size != textsize:
             SetMetrics()
         # Check whether we have a user input waiting to be processed
@@ -404,9 +399,10 @@ screen playthrough_file_slots(title):
         # Check the validity of the playthrough name that we're viewing. If invalid, find the latest valid name. If none found, set 'viewingptname' to an empty string
         if ((config.has_autosave and viewingptname == "auto") or (config.has_quicksave and viewingptname == "quick") or (persistent.playthroughslist and viewingptname in persistent.playthroughslist)) == False:
             viewingptname = persistent.playthroughslist[-1] if persistent.playthroughslist else ""
-        # Populate the viewed playthrough if 'viewingptname' is not an empty string - otherwise set it to None
-        # TODO: Check if this is constantly re-creating "new" playthrough objects... if so, have it see if it actually needs to
-        viewingpt = Playthrough(name=viewingptname) if viewingptname else None
+        # Populate the viewed playthrough if 'viewingptname' is not an empty string
+        if viewingptname != lastviewedptname:
+            viewingpt = Playthrough(name=viewingptname)
+            lastviewedptname = viewingptname
     use game_menu(title):
         style_prefix "fileslots"
         # By using 'side' in this manner, we put any tooltips in a strip across the top of the container we're in, and everything else in the center (below)
@@ -419,7 +415,7 @@ screen playthrough_file_slots(title):
                 # Display only what is inside the container, by cropping off anything outside it
                 at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                 # Collect and display any active tooltip on this page
-                $ help = GetTooltip()
+                $ help = GetTooltip() or feedback or ("" if viewingptname else "Use {=icon_text}[icon_newplaythrough]{/=} to start a new Playthrough")
                 if help:
                     text help:
                         at marquee(len(help))
@@ -669,11 +665,14 @@ screen display_slot_button(slot=None, title=None):
                 # Store hovered status in 'hasfocus'. 'SetLocalVariable()' is used because this screen is 'use'd by others
                 hovered SetLocalVariable("hasfocus", True)
                 unhovered SetLocalVariable("hasfocus", False)
-                # TODO: Handle overwriting these saves manually, via AwaitUserInput(). The critical thing is to know when the player has actually chosen to write the save, because version & MakePtLast
-                action [MakePtLast,
-                        If(title == "Save", false=FileLoad(filename, slot=True), true=FileSave("{}-{}".format(viewingptname, slotnumber) if viewingptname in ["auto", "quick"] else "{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, versionnumber), slot=True))]
-                        # This next line handles the case where a versioned slot has been overwritten (using the original data to support the confirmation dialog), and must now have its filename updated to reflect the current version "number"
-#                        If(title == "Save" and versionnumber != "" and versionnumber != config.version, false=NullAction(), true=[SetVariable("slotdetails", [filename, slotnumber, editablename, lockedstatus, config.version]), Function(ReflectSlotChanges)])]
+                # This next line is a nested/compund action list, where several things may or may not happen
+                action [If(title == "Save",
+                            false=  [MakePtLast, FileLoad(filename, slot=True)],
+                            true=   [SetLocalVariable("hasfocus", False),
+                                    Confirm("Are you sure you want to overwrite this save?{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\n\nSaved by version " + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""), confirm_selected=True,
+                                        no= [NullAction()],
+                                        yes=[FileDelete(filename, slot=True, confirm=False), FileSave("{}-{}".format(viewingptname, slotnumber) if viewingptname in ["auto", "quick"] else "{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version), slot=True, confirm=False), MakePtLast])])
+                        ]
                 if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                     key "save_delete" action [SetLocalVariable("hasfocus", False), FileDelete(filename, slot=True)]
                 if enable_versioning and versionnumber != "" and versionnumber != config.version:
