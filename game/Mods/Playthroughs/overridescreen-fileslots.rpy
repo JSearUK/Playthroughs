@@ -4,6 +4,8 @@ define feedback = ""
 
 
 # [ NEXT TASKS ]
+# BUG: + New Save + stays on hover color if using Slot Selection panel. In fact, *all* + New Save + buttons get that happening at once.
+# - Offer variables to the Dev for the positioning of the Playthroughs button on the Ren'Py saves screens
 # - Streamline and triple-check styles are behaving correctly
 # - Get all mod variables into its own named store
 #   - [EDIT:] May not be needed. May not even be useful. Further research needed.
@@ -63,6 +65,9 @@ define smallscreentextsize = 52
     # Hardcoded minimum text size for small screen devices such as smartphones
 define scrollbarsize = smallscreentextsize if renpy.variant("mobile") else gui.scrollbar_size
     # Adjust thickness of vertical scrollbars for the same reason (this package does not use horizontal ones)
+define ptbuttonpos = (0.25, 0.18)
+    # The position, as fractions of the (width, height) of the whole screen, of the button which switches to the Playthroughs system from the Ren'Py one
+    # NOTE: If you set this to None, it will not display the button automatically. Instead, you must incorporate it your 'fileslots(title)' screen via 'use switch_button`
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define focuscolor = "#FFF"
@@ -355,8 +360,8 @@ screen save():
     tag menu
     if persistent.save_system == "original":
         use file_slots("Save")
-        # This will place the button top-left of the file_slots screen in the default UI. Position references the entire screen. This will show regardless of Dev version of 'file_slots()'
-        use switch_button(0.25, 0.18)
+        if ptbuttonpos:
+            use switch_button(ptbuttonpos[0], ptbuttonpos[1])
     elif persistent.save_system == "playthrough":
         use playthrough_file_slots("Save")
     else:
@@ -367,8 +372,8 @@ screen load():
     tag menu
     if persistent.save_system == "original":
         use file_slots("Load")
-        # This will place the button top-left of the file_slots screen in the default UI. Position references the entire screen. This will show regardless of Dev version of 'file_slots()'
-        use switch_button(0.25, 0.18)
+        if ptbuttonpos:
+            use switch_button(ptbuttonpos[0], ptbuttonpos[1])
     elif persistent.save_system == "playthrough":
         use playthrough_file_slots("Load")
     else:
@@ -402,7 +407,8 @@ screen playthrough_file_slots(title):
         # Populate the viewed playthrough if 'viewingptname' is not an empty string
         if viewingptname != lastviewedptname:
             viewingpt = Playthrough(name=viewingptname)
-            lastviewedptname = viewingptname
+            # TODO: This is causing some interactions to not update the screen. Complete QA and trigger a manual update whenever it is not happening by itself
+            #lastviewedptname = viewingptname   # TODO: Commented out to restore original behaviour, for now. Uncomment this when resolved
     use game_menu(title):
         style_prefix "fileslots"
         # By using 'side' in this manner, we put any tooltips in a strip across the top of the container we're in, and everything else in the center (below)
