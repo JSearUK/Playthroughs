@@ -52,7 +52,8 @@ Every effort has been made to not interfere with either the style or the functio
   - Input/confirmation boxes are moved to the top of the screen, to account for the space taken by an on-screen keyboard.
   - A minimum text/button size is applied, to avoid many elements becoming too small for use.
   - Vertical scrollbars are thickened for ease of use (this package makes no use of horizontal scrollbars).
-- The package does its best to match the color scheme of the host project. If needed, this can be tweaked at `[ INITIALISATION - UI ]`
+- The package does its best to match the color scheme of the host project.\
+  If needed, this can be tweaked at `[ INITIALISATION - UI ]`
 - Basic behaviours can be disabled via five code toggles in the `[ INITIALISATION - BEHAVIOUR TOGGLES ]` section:
 ```py
 # NOTE: The 'enable_' defines below will still perform their default behaviour if set to 'False' - but the
@@ -122,6 +123,6 @@ define enable_iconcolors = True
       - If Autosaves are selected, neither renaming nor locking are possible, and both sorting and overwriting are disabled. They can be loaded if on the Load screen, and deleted from both.
       - If the save is from a version of the host project that appears to be greater than the current version (i.e. an earlier version was re-installed or rolled-back to), then loading will almost definitely fail and saving will almost definitely cause loss of progress. In this situation:
         - If `enable_versioning` is false, the save is not shown at all.
-        - If `enable_versioning` is true, the save is displayed, but made insensitive. There is no thumbnail - the name and version are all that is shown, centrally, in `insensitivecolor`. 
+        - If `enable_versioning` is true, the save is displayed, but made insensitive. There is no thumbnail; the name and version are all that is shown, centrally, in `insensitivecolor`. 
       - If the save is actually a "**+ New Save +**" slot, it just displays that text in the center. On gaining focus it will change color and update the tooltip, but will not animate. When clicked, it will generate a save with a default name consisting of the Playthrough name followed by the highest slot number for this Playthrough +1 (this may take it over the character count limit).
         - However, if the saves are sorted by slot number, "**+ New Save +**" buttons will also be generated for every gap in the series; single-slot gaps will behave as above, but multi-slot gaps will require the user to specify which slot number they wish to save into. This will open an input box, which will accept any number in the valid range.
