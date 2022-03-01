@@ -54,6 +54,8 @@ init 1:
 
 
 # [ INITIALISATION - UI ]
+define maxinputchars = 70
+    # The maximum character count permitted for input fields
 define layoutseparator = 5
     # The spacing between UI elements of the Playthrough save screen, in whole pixels
 define smallscreentextsize = 52
@@ -514,7 +516,7 @@ screen display_top_buttons(title=None):
                     text icon_newplaythrough:
                         line_leading int(yvalue / 5)
                     action [SetVariable("targetaction", "newplaythroughname"),
-                            Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}", excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
+                            Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}", excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
                             ]
 
 # Displays any sorting buttons above the Slots list
@@ -594,7 +596,7 @@ screen display_playthrough_button(i=None):
                         text icon_rename:
                             line_leading int(yvalue / 5)
                         action [SetVariable("targetaction", "changeplaythroughname"),
-                                Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=35, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
+                                Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
                                 ]
             # Playthrough selection button in the center, sized last, which permits internal sizing to work correctly
             button:
@@ -756,7 +758,7 @@ screen display_slot_button(slot=None, title=None):
                                         line_leading int(yvalue / 5)
                                     action [SetVariable("targetaction", "changeslotname"),
                                             SetVariable("slotdetails", [filename, slotnumber, editablename, lockedstatus, versionnumber]),
-                                            Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=35, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
+                                            Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
                                             ]
                             if enable_locking and lockedstatus:
                                 button:
