@@ -16,7 +16,7 @@ License: This code is free to use.
 ```
 ```php
 However: you are warned that, in it's current state, it may not behave properly.
-I do not yet consider it fit for purpose.
+         I do not yet consider it fit for purpose.
 ```
 ---
 
@@ -60,16 +60,16 @@ Every effort has been made to not interfere with either the style or the functio
 #       player will either not see their effect, or not be able to alter it.
 define enable_versioning = True
     # This simply warns the player if a *Playthrough* save is from an older version of the game, by graying
-    # out the thumbnail and writing details over the top of it. If the save is from a newer version of the game,
-    # it will show a disabled placeholder if True, or nothing at all if False. This is to prevent failed loads or
-    # loss of data.
+    # out the thumbnail and writing details over the top of it. If the save is from a newer version of the
+    # game, it will show a disabled placeholder if True, or nothing at all if False. This is to prevent
+    # failed loads or loss of data.
 define enable_renaming = True
     # This enables the player to provide/edit a friendly name for any existing Playthrough save.
 define enable_locking = True
-    # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, overwritten or
-    # deleted in-game.
-    # NOTE: If there are locked files present when 'enable_locking' is False, those files can be renamed and/or
-    #       deleted. The "LOCKED" flag is preserved. This behaviour is correct.
+    # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, over-
+    # written or deleted in-game.
+    # NOTE: If there are locked files present when 'enable_locking' is False, those files can be renamed
+    #       and/or deleted. The "LOCKED" flag is preserved. This behaviour is correct.
 define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key.
     # It ships with "lastmodified", "slotnumber", "lockedstatus" and "versionnumber" by default.
