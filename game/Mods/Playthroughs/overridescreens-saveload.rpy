@@ -34,8 +34,7 @@ define enable_versioning = True
     # This simply warns the player if a *Playthrough* save is from an older version of the game, by graying out the thumbnail and writing details over the top of it
     # If the save is from a newer version of the game, it will show: a disabled placeholder if True, or nothing at all if False. This is to prevent failed loads or loss of data
 define enable_renaming = True
-    # This enables the player to provide/edit a friendly name for any existing Playthrough save
-    # TODO: Test what happens when previously renamed slots run into 'enable_renaming = False'. They *should* be "playthroughname + slotnumber", yet preserve anything in 'editablename'
+    # This enables the player to provide/edit a friendly name for any existing Playthrough save, and rename the Playthroughs themselves
 define enable_locking = True
     # This enables the player to lock/unlock any Playthrough save. Locked saves cannot be renamed, overwritten or deleted in-game
     # - NOTE: If there are locked files present when 'enable_locking' is False, those files can be renamed and/or deleted. The "LOCKED" flag is preserved. This behaviour is correct.
@@ -43,7 +42,6 @@ define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified", "slotnumber", "lockedstatus" and "versionnumber" by default
 define enable_iconcolors = True
     # This enables some glyphs to be color-coded. If False, all glyphs will be `textcolor`
-        # TODO: This may be better as a persistent toggle, possibly changed by this packages' Preferences screen (if it gets one :P)
 
 
 # [ INITIALISATION - CONVENIENCE ]
@@ -57,7 +55,7 @@ init 1:
 define maxinputchars = 70
     # The maximum character count permitted for input fields
 define layoutseparator = 5
-    # The spacing between UI elements of the Playthrough save screen, in whole pixels
+    # The spacing between UI elements of the Playthrough save screen, in whole pixels. Setting this above 25 is not recommended
 define smallscreentextsize = 52
     # Hardcoded minimum text size for small screen devices such as smartphones
 define scrollbarsize = smallscreentextsize if renpy.variant("mobile") else gui.scrollbar_size
@@ -79,7 +77,7 @@ init python:
     SetMetrics()
     # Set the background for Slots. This is what is shown behind each slot and, as above, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")) or None (removing it entirely)
         # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
-    slotbackground = renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Solid("#FFF1") #
+    slotbackground = renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Solid("#FFF1")
     # Set the foreground for Slots, indicating when they have focus. It can be any Displayable, or None. If ColorizeMatrix is available, we can tint it to match the Dev's UI color scheme
     # Test for the existence of 'ColorizeMatrix', without running it:
     try:
@@ -203,8 +201,6 @@ init python:
             return slots
 
         def SortSlots(self, reverse=True):
-            # Strip any existing slots that have a filename that is "+ New Save +", because we cannot assume that we're dealing with a slotslist that has not already been sorted
-            # - NOTE: This doesn't appear to be necessary. I don't know why? - [EDIT:] There is other code that shouldn't work, and does. I think it's just the way Ren'Py handles stuff internally
             # Sort the slots in (reverse) order according to the value of 'persistent.sortby':
             # - NOTE: The '.sort()' method mutates the original list, making changes in place
             slotkeys = ["filename", "lastmodified", "slotnumber", "editablename", "lockedstatus", "versionnumber"]
@@ -216,12 +212,10 @@ init python:
             # - NOTE: lambdas are disposable anonymous functions that use (an) input(s) to derive a required output. More here: (https://www.w3schools.com/python/python_lambda.asp)
             if sortby in ("versionnumber","lockedstatus"):
                 reverse = False
-                # TODO: Fix kludgey override above and make the button call the function with parameters
-                # - [EDIT:] NOTE: "Function(viewingpt.SortSlots, reverse=False)" not working - [EDIT:] NOTE: viewingpt.SortSlots(), or "viewingpt.SortSlots", or "viewingpt.SortSlots()", may.
             self.slots.sort(reverse=reverse, key=lambda x: x[sortkey])
             # If appropriate, add slots that define "+ New Save +" slots by position. Since "auto"/"quick" are hard-sorted by "lastmodified", this will not affect those 'playthrough's
             i = slotkeys.index("slotnumber")
-            if sortby == "slotnumber" and len(self.slots) > 1:
+            if sortby == "slotnumber" and len(self.slots) != 0:
                 # We've already sorted the list, so run through it backwards and insert "+ New Save +" slots where needed
                 # - NOTE: Going backwards preserves the indices of yet-to-be-checked slots, because any newly-inserted slots are increasing the length of the list even as we step through it
                 span = len(self.slots) - 1
@@ -233,6 +227,14 @@ init python:
                     elif upper-lower > 2:
                         # There is a multi-slot gap here; store the range (as integers) in the 'lastmodified' and 'versionnumber' fields
                         self.slots.insert(slot, ["+ New Save +", lower + 1, "", "", "", upper - 1 ])
+                # If the lowest slot number was not 1, the slots between it and 0 got skipped by the loop and must be handled now
+                lower, upper = 0, self.slots[len(self.slots)-1][i]
+                if upper-lower == 2:
+                    # There is a single-slot gap here
+                    self.slots.append(["+ New Save +", "", lower + 1, "", "", ""])
+                elif upper-lower > 2:
+                    # There is a multi-slot gap here; store the range (as integers) in the 'lastmodified' and 'versionnumber' fields
+                    self.slots.append(["+ New Save +", lower + 1, "", "", "", upper - 1 ])
             # Finally, insert a "+ New Save +" slot at the beginning of the list - unless we're in "auto"/"quick"
             if self.name != "auto" and self.name != "quick":
                 # Find the highest slotnumber there currently is, and add 1. Insert this "+ New Save +" slot at the beginning of the list
@@ -281,13 +283,12 @@ init -1 python:
 
     def ReflectSlotChanges():
         # This accesses 'slotdetails' as a list of slot details, then checks that the original file exists; if so, it builds a new filename, renames it, then updates the data in 'viewingpt'
-        # - [EDIT:] No need to update the data in 'viewingpt', nor to reload it. Apparently, even this data is adjusted through the magic of Ren'Py's python abstraction /shrug Cheers, PyTom!
         global slotdetails, viewingptname
         if renpy.can_load(slotdetails[0]) == False:
             raise Exception("Error: File \"{}\" does not exist".format(slotdetails[0]))
         newfilename = viewingptname
         for subdata in slotdetails[1:]:
-            if subdata: newfilename += "-" + str(subdata)   # TODO: See if this can be done with .join() - [EDIT:] probably, but can I be bothered? This works :P
+            if subdata: newfilename += "-" + str(subdata)
         if slotdetails[0] != newfilename:
             renpy.rename_save(slotdetails[0], newfilename)
         slotdetails = []
@@ -308,10 +309,8 @@ init -1 python:
 
     def ProcessUserInput():
         # This is an all-purpose function that is called whenever user input is available
-        # - NOTE: I don't know how to make an action list wait for input and then resume; this is a workaround that calls this function once per screen update... I think
-            # TODO: Figure out if "call in new context" is the designed solution to this problem, and how to achieve it - [EDIT:] The `Confirm()` action manages this. Must be doable.
         global userinput, targetaction, viewingptname, viewingpt, slotdetails
-        # The first thing to do is quit out unless there is something that actually needs processing (redundant ... unless someone puts it into an 'action' list)
+        # The first thing to do is quit out unless there is something that actually needs processing (redundant ... unless someone puts it into an 'action' list...)
         if userinput:
             # Be sure we're dealing with a string. Pretty much anything will convert to a string - even objects. Also, using 'str()' on a string does not throw an exception, which is nice
             userinput = str(userinput)
@@ -384,7 +383,7 @@ screen switch_button(xpos=0.0, ypos=0.0):
         xysize (yvalue, yvalue)
         pos (xpos, ypos)
         text icon_viewplaythroughs:
-            line_leading int(yvalue / 5) # TODO: This line-leading thing is kludgey - see if it can't be more elegantly fixed
+            line_leading int(yvalue / 5)
         action SetVariable("persistent.save_system", "playthrough")
 
 # The new playthrough system
@@ -730,7 +729,7 @@ screen display_slot_button(slot=None, title=None):
                         xysize (1.0, 1.0)
                         at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                         text slotname:
-                            at ((scroll(len(slotname)) if yvalue > 86 else marquee(len(slotname))) if hasfocus else None)
+                            at (scroll(len(slotname)) if hasfocus else None)
                             color (hovercolor if hasfocus else slottextcolor)
                             align (0.5, 0.5)
                             text_align 0.5
