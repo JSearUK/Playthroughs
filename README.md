@@ -16,7 +16,6 @@ License: This code is free to use.
 ```
 ```php
 However: you are warned that, in it's current state, it may not behave properly.
-         I do not yet consider it fit for purpose.
 ```
 ---
 
@@ -59,10 +58,10 @@ Every effort has been made to not interfere with either the style or the functio
 # NOTE: The 'enable_' defines below will still perform their default behaviour if set to 'False' - but the
 #       player will either not see their effect, or not be able to alter it.
 define enable_versioning = True
-    # This simply warns the player if a *Playthrough* save is from an older version of the game, by graying
-    # out the thumbnail and writing details over the top of it. If the save is from a newer version of the
-    # game, it will show a disabled placeholder if True, or nothing at all if False. This is to prevent
-    # failed loads or loss of data.
+    # This simply warns the player if a *Playthrough* save is from an older version of the game, by
+    # graying out the thumbnail and writing details over the top of it. If the save is from a newer
+    # version of the game, it will show a disabled placeholder if True, or nothing at all if False.
+    # This is to prevent failed loads or loss of data.
 define enable_renaming = True
     # This enables the player to provide/edit a friendly name for any existing Playthrough save.
 define enable_locking = True
