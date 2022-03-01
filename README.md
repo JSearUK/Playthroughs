@@ -48,7 +48,7 @@ Every effort has been made to not interfere with either the style or the functio
 *Also serves as a QA checklist*
 
 ### Behaviour
-- The package is aware of when it in on a mobile device, and makes the following changes:
+- The package is aware of when it is on a mobile device, and makes the following changes:
   - Input/confirmation boxes are moved to the top of the screen, to account for the space taken by an on-screen keyboard.
   - A minimum text/button size is applied, to avoid many elements becoming too small for use.
   - Vertical scrollbars are thickened for ease of use (this package makes no use of horizontal scrollbars).
