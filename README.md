@@ -48,7 +48,7 @@ Every effort has been made to not interfere with either the style or the functio
 *Also serves as a QA checklist*
 
 ### Behaviour
-- The package is aware of when it is on a mobile device, and makes the following changes:
+- The package is aware of when it in on a mobile device, and makes the following changes:
   - Input/confirmation boxes are moved to the top of the screen, to account for the space taken by an on-screen keyboard.
   - A minimum text/button size is applied, to avoid many elements becoming too small for use.
   - Vertical scrollbars are thickened for ease of use (this package makes no use of horizontal scrollbars).
@@ -116,7 +116,7 @@ define enable_iconcolors = True
       - If `enable_renaming` is true and the save is not locked, Rename Save. This will open an input box similar to the one used for (re-)naming a Playthrough, except that numbers and duplicates are permitted.
       - If `enable_locking` is true, either Lock Save or Unlock Save, toggling locked status. Note that locked status merely prevents this package from making changes; nothing stops the operating system from doing so.
       - If the save is not locked, Delete Save. This will prompt a confirmation box. **Pressing Confirm here will *immediately and irreversibly* delete the save, from *both* of the Ren'Py save locations!**
-    - The name of the save, centrally. When gaining focus, this will become `hovercolor` and begin scrolling either horizontally or vertically, based upon `yvalue`.
+    - The name of the save, centrally. When gaining focus, this will become `hovercolor` and begin scrolling vertically.
     - A foreground image, found at *.../game/Mods/Playthroughs/gui/slotforeground.png*; this may instead be any displayable, or None.
     - Certain special cases apply as follows:
       - If Quicksaves are selected, neither renaming nor locking are possible and sorting is disabled. They can be overwritten, however, if on the Save screen, loaded from if on the Load screen, and deleted from both.
