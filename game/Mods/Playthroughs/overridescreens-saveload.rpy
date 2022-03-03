@@ -1,6 +1,5 @@
 # [ DEBUG TOGGLES - REMOVE ALL CODE REFERENCING THESE BINDINGS ]
 define config.developer = True
-define feedback = ""
 
 
 # [ NEXT TASKS ]
@@ -62,7 +61,7 @@ define scrollbarsize = smallscreentextsize if renpy.variant("mobile") else gui.s
     # Adjust thickness of vertical scrollbars for the same reason (this package does not use horizontal ones)
 define ptbuttonpos = (0.25, 0.18)
     # The position, as fractions of the (width, height) of the whole screen, of the button which switches to the Playthroughs system from the Ren'Py one
-    # NOTE: If you set this to None, it will not display the button automatically. Instead, you must incorporate it your 'fileslots(title)' screen via 'use switch_button`
+    # NOTE: If you set this to `None`, it will not display the button automatically. Instead, you must incorporate it your 'fileslots(title)' screen via 'use switch_button`
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define focuscolor = "#FFF"
@@ -73,8 +72,6 @@ define interfacecolor = gui.interface_text_color
 
 # [ UI CALIBRATION/DISPLAYABLES ]
 init python:
-    # Calculate the text and button sizes we will use, based upon a variety of factors
-    SetMetrics()
     # Set the background for Slots. This is what is shown behind each slot and, as above, can be a Displayable (e.g. Frame("gui/nvl.png"), or Solid("000000CF")) or None (removing it entirely)
         # - NOTE: Displayables are usually defined within a Frame in order to be scaled correctly, e.g. Frame("gui/nvl.png"). There are exceptions, such as Color() or Solid()
     slotbackground = renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Solid("#FFF1")
@@ -89,21 +86,29 @@ init python:
         # ColorizeMatrix is available. Use it to tint the image to match the UI color
         slotforeground = renpy.displayable(Frame(Transform(pathoffset + "gui/slotforeground.png", matrixcolor = ColorizeMatrix(Color("#000"), Color(textcolor)))))
     # Locate a font file containing the glyphs we will use instead of image-based icons, below. This permits styling of the icons
-    # - NOTE: To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2
-    symboltext = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
-    # Set the glyphs we will use for each icon
-    # TODO: Overhaul this to be a Dict. Overhaul code that references it to make use of the Dict
-    icon_viewplaythroughs = "{color=" + focuscolor + "}𝌮{/color}" if enable_iconcolors else "𝌮" # 𝌮
-    icon_viewrenpypages   = "{color=" + focuscolor + "}𝌅{/color}" if enable_iconcolors else "𝌅" # 𝌅
-    icon_newplaythrough   = "{color=" + "#00FF00" + "}🞤{/color}" if enable_iconcolors else "🞤" # 🞤
-    icon_rename           = "{color=" + interfacecolor + "}🪶{/color}" if enable_iconcolors else "🪶" # 🪶
-    icon_delete           = "{color=" + "#FF0000" + "}🞫{/color}" if enable_iconcolors else "🞫" # 🞫
-    icon_locked           = "{color=" + "#FF0000" + "}🔒{/color}" if enable_iconcolors else "🔒" # ⚿
-    icon_unlocked         = "{color=" + textcolor + "}🔓{/color}" if enable_iconcolors else "🔓" # ⚿
-    icon_sortbyrecent     = "⭫" # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
-    icon_sortbynumber     = "#" # Alternates: 𝍸 #
-    icon_sortbylocked     = "🔒" # Alternates: 🔒
-    icon_sortbyversion    = "⚠" # Alternates: ⭭ 🗓 ⚠
+        # - NOTE: To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2
+    glyphfont = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
+    # Fonts do not always have standard positioning. `glyphoffset` can be used to adjust the line-leading property, should the gyphs not appear vertically centered in buttons
+        # - NOTE: This is expressed as fraction of the button height (`yvalue`), to support UI scaling. Negative values will move the glyph upwards, positive will move it downwards
+    glyphoffset = 0.15
+    # Set the glyphs we will use for each icon. These are referenced as a custom text tag e.g. "To create a new Playthrough, click {icon=NewPlaythrough}."
+        # - NOTE: If you want the icon to be able to respond to focus/sensitivity changes, use `None` for the "color" field
+    config.self_closing_custom_text_tags["icon"] = icon_tag
+    icons = [
+            {"name": "Delete", "symbol": "🞫", "color": "#FF0000"}, # 🞫
+            {"name": "Rename", "symbol": "🪶", "color": interfacecolor}, # 🪶
+            {"name": "Locked", "symbol": "🔒", "color": "#FF0000"}, # 🔒
+            {"name": "Unlocked", "symbol": "🔓", "color": textcolor}, # 🔓
+            {"name": "SortByRecent", "symbol": "⭫", "color": None}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
+            {"name": "SortByNumber", "symbol": "#", "color": None}, # Alternates: 𝍸 #
+            {"name": "SortByLocked", "symbol": "🔒", "color": None}, # Alternates: 🔒
+            {"name": "SortByVersion", "symbol": "⚠", "color": None}, # Alternates: ⭭ 🗓 ⚠
+            {"name": "NewPlaythrough", "symbol": "🞤", "color": "#00FF00"}, # 🞤
+            {"name": "ViewRenpyPages", "symbol": "𝌅", "color": focuscolor}, # 𝌅
+            {"name": "ViewPlaythroughs", "symbol": "𝌮", "color": focuscolor} # 𝌮
+            ]
+    # Calculate the text and button sizes we will use, based upon a variety of factors
+    SetMetrics()
 
 
 # [ STYLING ]
@@ -113,6 +118,7 @@ style fileslots:
     margin (0, 0)
 style fileslots_text:
     outlines [(absolute(1), "#000", 0, 0)]
+    color textcolor
     size textsize
 style fileslots_focus is fileslots_text:
     color focuscolor
@@ -130,8 +136,8 @@ style fileslots_button_text is fileslots_text:
     align (0.5, 0.5)
 style selection_button_text is fileslots_button_text
 style icon_text is fileslots_text:
-    font symboltext
     align (0.5, 0.5)
+    hover_color hovercolor
 style fileslots_frame is fileslots:
     xfill True
 style fileslots_viewport is fileslots:
@@ -205,7 +211,7 @@ init python:
             # - NOTE: The '.sort()' method mutates the original list, making changes in place
             slotkeys = ["filename", "lastmodified", "slotnumber", "editablename", "lockedstatus", "versionnumber"]
             # ... Since "auto"/"quick" saves are performed cyclically, sorting by "lastmodified" is the same as sorting by "slotnumber" would be for Playthrough slotlists
-            sortby = "lastmodified" if (self.name == "auto" or self.name == "quick") else persistent.sortby
+            sortby = "lastmodified" if (enable_sorting == False or self.name in ["auto", "quick"]) else persistent.sortby
             # ... Default to "lastmodified" if the requested 'sortby' cannot be found in 'slotkeys[]', and store the index of the required key
             sortkey = slotkeys.index(sortby) if sortby in slotkeys else slotkeys.index("lastmodified")
             # ... Perform the sort. The '.sort()' method uses a lambda to find the key data to sort against for each item(list of slot details) in the iterable(list of slots)
@@ -247,8 +253,32 @@ init python:
 
 # [ FUNCTIONS ]
 init -1 python:
+    def ResetPtVars(timeline=1.0):
+        # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
+        # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
+        global userinput, targetaction, viewingptname, viewingpt, slotdetails
+        userinput, targetaction, viewingptname, viewingpt, slotdetails = "", "", "", [], []
+        return 1.0
+
+    def icon_tag(tag, argument):
+        # This function returns transforms the `{icon=}` text tag to return the glyph we want in the correct font and color. Returns a warning if the glyph is not found
+        # Extract the data, if it is present in the list of `icons`. Otherwise, construct an error message
+        subdata = [[icon["symbol"], icon["color"], True] for icon in icons if icon["name"] == argument] or [["[Icon not found: \"{}\"]".format(argument)], ["#F00"], False]
+        # Begin building the return value (`rv`)
+        rv = [(renpy.TEXT_TEXT, subdata[0][0])]
+        # Insert and append `{color=}` tags, if color is wanted
+        if enable_iconcolors and subdata[0][1]:
+            rv.insert(0, (renpy.TEXT_TAG, "color=" + subdata[0][1]))
+            rv.append((renpy.TEXT_TAG, "/color"))
+        # Insert and append `{font=}` tags, if we found the icon
+        if subdata[0][2]:
+            rv.insert(0, (renpy.TEXT_TAG, "font=" + glyphfont))
+            rv.append((renpy.TEXT_TAG, "/font"))
+        #Return what we've constructed -
+        return rv
+
     def SetMetrics():
-        global lastknownaccessibilityscale, lastknownfontsize, textsize, yvalue, slotheight, qfspacer
+        global lastknownaccessibilityscale, lastknownfontsize, textsize, yvalue, slotheight, qfspacer, iconoffset
         # Record current settings
         lastknownaccessibilityscale = preferences.font_size
         lastknownfontsize = gui.text_size
@@ -259,17 +289,12 @@ init -1 python:
             textsize = smallscreentextsize
         # yvalue is used to line up the edges of various UI elements, primarily buttons which need extra space around the text to look good
         yvalue = int(textsize * 1.5 * lastknownaccessibilityscale)
+        # Calculate the line_leading offset of the glyph font, to account for scaling
+        iconoffset = int(yvalue * glyphoffset)
         # The height of the save slots is calculated from the height of the save thumbnail (typically defined in 'gui.rpy'), the size of three icons, and the above-defined 'layoutseparator'
         slotheight = int(max(config.thumbnail_height, (yvalue * 3)) + (layoutseparator * 2))
         # Permits compressed spacing inside input boxes if the player is using a mobile device
         qfspacer = int(layoutseparator * 2) if renpy.variant("mobile") else yvalue
-
-    def ResetPtVars(timeline=1.0):
-        # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
-        # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
-        global userinput, targetaction, viewingptname, viewingpt, slotdetails
-        userinput, targetaction, viewingptname, viewingpt, slotdetails = "", "", "", [], []
-        return 1.0
 
     def MakePtLast():
         # Check there is only one copy of 'viewingptname' in the persistent list. If so, delete it and append a new version to the end of the list. If not, throw a bug-checking exception
@@ -327,7 +352,7 @@ init -1 python:
                 for slot in viewingpt.slots:
                     slotdetails = slot
                     slotdetails.pop(1)
-                    if slotdetails[3] != "LOCKED":
+                    if enable_locking == False or slotdetails[3] != "LOCKED":
                         slotdetails[2] = slotdetails[2].replace(oldptname, viewingptname)
                     ReflectSlotChanges()
                 if persistent.playthroughslist.count(oldptname) != 1:
@@ -382,8 +407,8 @@ screen switch_button(xpos=0.0, ypos=0.0):
         style_prefix "icon"
         xysize (yvalue, yvalue)
         pos (xpos, ypos)
-        text icon_viewplaythroughs:
-            line_leading int(yvalue / 5)
+        text "{icon=ViewPlaythroughs}":
+            line_leading iconoffset
         action SetVariable("persistent.save_system", "playthrough")
 
 # The new playthrough system
@@ -405,7 +430,7 @@ screen playthrough_file_slots(title):
             viewingpt = Playthrough(name=viewingptname)
             # NOTE: ONLY recreating this on playthrough name change broke a lot of things, because the UI would not update when it should (because the object hadn't changed).
             #       Thus, I've limited the damage by disallowing re-creation of the object if we're waiting on user input i.e. there's a modal screen over the top of the UI.
-            #       It's still not ideal, because events such as hovered/unhovered will still recreate the whole Playthrough object (complete with disk read)
+            #       It's still not ideal, because events such as hovered/unhovered will still recreate the whole Playthrough object (complete with disk reads...)
     use game_menu(title):
         style_prefix "fileslots"
         # By using 'side' in this manner, we put any tooltips in a strip across the top of the container we're in, and everything else in the center (below)
@@ -418,7 +443,7 @@ screen playthrough_file_slots(title):
                 # Display only what is inside the container, by cropping off anything outside it
                 at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                 # Collect and display any active tooltip on this page
-                $ help = GetTooltip() or feedback or ("" if viewingptname else "Use {=icon_text}[icon_newplaythrough]{/=} to start a new Playthrough")
+                $ help = GetTooltip() or ("" if viewingptname else "Use {=icon_text}[icon_newplaythrough]{/=} to start a new Playthrough")
                 if help:
                     text help:
                         at marquee(len(help))
@@ -486,8 +511,8 @@ screen display_top_buttons(title=None):
                 tooltip "Switch to the Ren'Py [title] system"
                 style_prefix "icon"
                 xysize (yvalue, yvalue)
-                text icon_viewrenpypages:
-                    line_leading int(yvalue / 5)
+                text "{icon=ViewRenpyPages}":
+                    line_leading iconoffset
                 action [SetVariable("persistent.save_system", "original")
                         ]
             if config.has_autosave:
@@ -512,8 +537,8 @@ screen display_top_buttons(title=None):
                     tooltip "Create a new Playthrough"
                     style_prefix "icon"
                     xysize (yvalue, yvalue)
-                    text icon_newplaythrough:
-                        line_leading int(yvalue / 5)
+                    text "{icon=NewPlaythrough}":
+                        line_leading iconoffset
                     action [SetVariable("targetaction", "newplaythroughname"),
                             Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}", excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
                             ]
@@ -530,8 +555,8 @@ screen display_sorting_buttons():
             xysize (yvalue, yvalue)
             selected_background textcolor
             hover_background None
-            text icon_sortbyrecent:
-                line_leading int(yvalue / 5)
+            text "{icon=SortByRecent}":
+                line_leading iconoffset
                 hover_color hovercolor
                 selected_color hovercolor
             action [SetVariable("persistent.sortby", "lastmodified"),
@@ -543,8 +568,8 @@ screen display_sorting_buttons():
             xysize (yvalue, yvalue)
             selected_background textcolor
             hover_background None
-            text icon_sortbynumber:
-                line_leading int(yvalue / 5)
+            text "{icon=SortByNumber}":
+                line_leading iconoffset
                 hover_color hovercolor
                 selected_color hovercolor
             action [SetVariable("persistent.sortby", "slotnumber"),
@@ -557,8 +582,8 @@ screen display_sorting_buttons():
                 xysize (yvalue, yvalue)
                 selected_background textcolor
                 hover_background None
-                text icon_sortbylocked:
-                    line_leading int(yvalue / 5)
+                text "{icon=SortByLocked}":
+                    line_leading iconoffset
                     hover_color hovercolor
                     selected_color hovercolor
                 action [SetVariable("persistent.sortby", "lockedstatus"),
@@ -571,8 +596,8 @@ screen display_sorting_buttons():
                 xysize (yvalue, yvalue)
                 selected_background textcolor
                 hover_background None
-                text icon_sortbyversion:
-                    line_leading int(yvalue / 5)
+                text "{icon=SortByVersion}":
+                    line_leading iconoffset
                     hover_color hovercolor
                     selected_color hovercolor
                 action [SetVariable("persistent.sortby", "versionnumber"),
@@ -592,8 +617,8 @@ screen display_playthrough_button(i=None):
                         tooltip "Rename the \"{}\" Playthrough".format(viewingptname)
                         style_prefix "icon"
                         xysize (yvalue, yvalue)
-                        text icon_rename:
-                            line_leading int(yvalue / 5)
+                        text "{icon=Rename}":
+                            line_leading iconoffset
                         action [SetVariable("targetaction", "changeplaythroughname"),
                                 Show("querystring", query="{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}", preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=persistent.playthroughslist + ["auto", "quick"], maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
                                 ]
@@ -619,8 +644,8 @@ screen display_playthrough_button(i=None):
                         tooltip "Delete the \"{}\" Playthrough".format(viewingptname)
                         style_prefix "icon"
                         xysize (yvalue, yvalue)
-                        text icon_delete:
-                            line_leading int(yvalue / 5)
+                        text "{icon=Delete}":
+                            line_leading iconoffset
                         action [Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked saves: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSaves from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
                                 ]
 
@@ -724,7 +749,7 @@ screen display_slot_button(slot=None, title=None):
                                         size gui.slot_button_text_size
                                         xalign 0.5
                                         layout "nobreak"
-                    # Save name in the center, either marquee'ing or scrolling on focus (based on yvalue)
+                    # Save name in the center, scrolling vertically on focus
                     fixed:
                         xysize (1.0, 1.0)
                         at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
@@ -753,8 +778,8 @@ screen display_slot_button(slot=None, title=None):
                                     tooltip "Rename save:  \"{}\"{}".format(slotname, timestamp)
                                     style_prefix "icon"
                                     xysize (yvalue, yvalue)
-                                    text icon_rename:
-                                        line_leading int(yvalue / 5)
+                                    text "{icon=Rename}":
+                                        line_leading iconoffset
                                     action [SetVariable("targetaction", "changeslotname"),
                                             SetVariable("slotdetails", [filename, slotnumber, editablename, lockedstatus, versionnumber]),
                                             Show("querystring", query="{color="+interfacecolor+"}Please enter the slot name:{/color}", preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
@@ -764,8 +789,8 @@ screen display_slot_button(slot=None, title=None):
                                     tooltip "{} save:  \"{}\"{}".format("Unlock" if lockedstatus == "LOCKED" else "Lock", slotname, timestamp)
                                     style_prefix "icon"
                                     xysize (yvalue, yvalue)
-                                    text (icon_locked if lockedstatus == "LOCKED" else icon_unlocked):
-                                        line_leading int(yvalue / 5)
+                                    text ("{icon=Locked}" if lockedstatus == "LOCKED" else "{icon=Unlocked}"):
+                                        line_leading iconoffset
                                     action [SetVariable("slotdetails", [filename, slotnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED", versionnumber]),
                                             ReflectSlotChanges
                                             ]
@@ -774,8 +799,8 @@ screen display_slot_button(slot=None, title=None):
                                     tooltip "Delete save:  \"{}\"{}".format(slotname, timestamp)
                                     style_prefix "icon"
                                     xysize (yvalue, yvalue)
-                                    text icon_delete:
-                                        line_leading int(yvalue / 5)
+                                    text "{icon=Delete}":
+                                        line_leading iconoffset
                                     action [FileDelete(filename, slot=True)
                                             ]
 
