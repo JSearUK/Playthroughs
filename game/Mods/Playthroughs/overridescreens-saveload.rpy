@@ -96,9 +96,9 @@ init python:
     config.self_closing_custom_text_tags["icon"] = icon_tag
     icons = [
             {"name": "Delete", "symbol": "🞫", "color": "#FF0000"}, # 🞫
-            {"name": "Rename", "symbol": "🪶", "color": interfacecolor}, # 🪶
+            {"name": "Rename", "symbol": "🪶", "color": "#9933FF"}, # 🪶
             {"name": "Locked", "symbol": "🔒", "color": "#FF0000"}, # 🔒
-            {"name": "Unlocked", "symbol": "🔓", "color": textcolor}, # 🔓
+            {"name": "Unlocked", "symbol": "🔓", "color": "#FFFF00"}, # 🔓
             {"name": "SortByRecent", "symbol": "⭫", "color": None}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
             {"name": "SortByNumber", "symbol": "#", "color": None}, # Alternates: 𝍸 #
             {"name": "SortByLocked", "symbol": "🔒", "color": None}, # Alternates: 🔒
@@ -263,7 +263,7 @@ init -1 python:
     def icon_tag(tag, argument):
         # This function returns transforms the `{icon=}` text tag to return the glyph we want in the correct font and color. Returns a warning if the glyph is not found
         # Extract the data, if it is present in the list of `icons`. Otherwise, construct an error message
-        subdata = [[icon["symbol"], icon["color"], True] for icon in icons if icon["name"] == argument] or [["[Icon not found: \"{}\"]".format(argument)], ["#F00"], False]
+        subdata = [[icon["symbol"], icon["color"], True] for icon in icons if icon["name"] == argument] or [["[Icon not found: \"{}\"]".format(argument), "#F00", False]]
         # Begin building the return value (`rv`)
         rv = [(renpy.TEXT_TEXT, subdata[0][0])]
         # Insert and append `{color=}` tags, if color is wanted
