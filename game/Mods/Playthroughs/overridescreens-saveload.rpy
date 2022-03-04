@@ -112,39 +112,38 @@ init python:
 
 
 # [ STYLING ]
-    # TODO: Redfine these to cover all UI styles, and nothing more
+# Basic styling, for standard UI elements
 style fileslots:
     padding (0, 0)
     margin (0, 0)
+style fileslots_frame is fileslots:
+    xfill True
+style fileslots_vscrollbar:
+    unscrollable "hide"
+    xsize scrollbarsize
+# Thematic styling, for general buttons and text
 style fileslots_text:
     outlines [(absolute(1), "#000", 0, 0)]
     color textcolor
     size textsize
 style fileslots_focus is fileslots_text:
     color focuscolor
-style fileslots_button is fileslots:
-    xminimum yvalue
-    ysize yvalue
-style selection_button is fileslots_button:
-    selected_background textcolor
-style icon_button is fileslots_button:
-    hover_background textcolor
+style fileslots_button is fileslots
 style fileslots_button_text is fileslots_text:
     insensitive_color insensitivecolor
     selected_color hovercolor
     hover_color hovercolor
     align (0.5, 0.5)
-style selection_button_text is fileslots_button_text
+# Specific styling, for buttons that visibly stay selected
+style selection_button is fileslots_button:
+    selected_background textcolor
+style selection_text is fileslots_button_text
+# Specific styling, for icon-glyphs. Text coloring here may be overidden by `enable_iconcolors`
+style icon_button is fileslots_button:
+    hover_background textcolor
 style icon_text is fileslots_text:
-    align (0.5, 0.5)
     hover_color hovercolor
-style fileslots_frame is fileslots:
-    xfill True
-style fileslots_viewport is fileslots:
-    xfill True
-style fileslots_vscrollbar:
-    unscrollable "hide"
-    xsize scrollbarsize
+    align (0.5, 0.5)
 
 
 # [ TRANSFORMS ]
@@ -434,7 +433,7 @@ screen playthrough_file_slots(title):
     use game_menu(title):
         style_prefix "fileslots"
         # By using 'side' in this manner, we put any tooltips in a strip across the top of the container we're in, and everything else in the center (below)
-        # - Because of the way in which side calculates its layout (center last), subcontainers get accurate metrics with which to handle their own calculations, dodging some viewport issues
+        # - Because of the way in which side calculates its layout (center last), subcontainers get accurate metrics with which to handle their own calculations
         side "t c":
             # Top tooltip, displayed above everything else.
                 # TODO: scroll only if contents outsize the container. Currently: Always scrolls - [EDIT:] No way found to do this. Ren'Py 8 may provide access to internal metrics
@@ -456,7 +455,7 @@ screen playthrough_file_slots(title):
                 # Playthroughs panel
                 vbox:
                     xsize 0.35 * lastknownaccessibilityscale
-                    # This header and the panel below it are offset slightly to the left, to compensate for the width and spacing of the vertical scrollbar in the viewport below them
+                    # This header and the panel below it are offset slightly to the left, to compensate for the width and spacing of the vertical scrollbar in the vpgrid below them
                     text "Playthroughs":
                         size gui.label_text_size
                         color interfacecolor
@@ -516,18 +515,20 @@ screen display_top_buttons(title=None):
                 action [SetVariable("persistent.save_system", "original")
                         ]
             if config.has_autosave:
-                textbutton  _("{#auto_page}A"):
+                button:
                     tooltip "Show Autosaves"
                     style_prefix "selection"
                     xysize (yvalue, yvalue)
+                    text _("{#auto_page}A")
                     action [SetVariable("viewingptname", "auto"),
                             SetVariable("viewingpt", Playthrough(name="auto"))
                             ]
             if config.has_quicksave:
-                textbutton _("{#quick_page}Q"):
+                button:
                     tooltip "Show Quicksaves"
                     style_prefix "selection"
                     xysize (yvalue, yvalue)
+                    text _("{#quick_page}Q")
                     action [SetVariable("viewingptname", "quick"),
                             SetVariable("viewingpt", Playthrough(name="quick"))
                             ]
@@ -546,61 +547,21 @@ screen display_top_buttons(title=None):
 # Displays any sorting buttons above the Slots list
 screen display_sorting_buttons():
     hbox:
-        # TODO: Streamline styling... again
-        # TODO: Er. This can become a loop through a list of lists. On the other hand, this works and is easy to understand. Low priority
         ysize yvalue
-        button:
-            tooltip "Sort slots by most recently changed first"
-            style_prefix "icon"
-            xysize (yvalue, yvalue)
-            selected_background textcolor
-            hover_background None
-            text "{icon=SortByRecent}":
-                line_leading iconoffset
-                hover_color hovercolor
-                selected_color hovercolor
-            action [SetVariable("persistent.sortby", "lastmodified"),
-                    viewingpt.SortSlots
-                    ]
-        button:
-            tooltip "Sort slots by highest slot number first"
-            style_prefix "icon"
-            xysize (yvalue, yvalue)
-            selected_background textcolor
-            hover_background None
-            text "{icon=SortByNumber}":
-                line_leading iconoffset
-                hover_color hovercolor
-                selected_color hovercolor
-            action [SetVariable("persistent.sortby", "slotnumber"),
-                    viewingpt.SortSlots
-                    ]
-        if enable_locking:
-            button:
-                tooltip "Sort slots by showing locked slots first"
-                style_prefix "icon"
-                xysize (yvalue, yvalue)
-                selected_background textcolor
-                hover_background None
-                text "{icon=SortByLocked}":
-                    line_leading iconoffset
-                    hover_color hovercolor
-                    selected_color hovercolor
-                action [SetVariable("persistent.sortby", "lockedstatus"),
-                        viewingpt.SortSlots
+        $ buttons = ([  {"Tooltip": "Sort slots by most recently changed first", "Icon": "{icon=SortByRecent}", "SortByValue": "lastmodified"},
+                        {"Tooltip": "Sort slots by highest slot number first", "Icon": "{icon=SortByNumber}", "SortByValue": "slotnumber"}
                         ]
-        if enable_versioning:
+                        + ([{"Tooltip": "Sort slots by showing locked slots first", "Icon": "{icon=SortByLocked}", "SortByValue": "lockedstatus"}] if enable_locking else [])
+                        + ([{"Tooltip": "Sort slots by lowest version number first", "Icon": "{icon=SortByVersion}", "SortByValue": "versionnumber"}] if enable_versioning else [])
+                        )
+        for button in buttons:
             button:
-                tooltip "Sort slots by lowest version number first"
-                style_prefix "icon"
+                tooltip button["Tooltip"]
+                style_prefix "selection"
                 xysize (yvalue, yvalue)
-                selected_background textcolor
-                hover_background None
-                text "{icon=SortByVersion}":
+                text button["Icon"]:
                     line_leading iconoffset
-                    hover_color hovercolor
-                    selected_color hovercolor
-                action [SetVariable("persistent.sortby", "versionnumber"),
+                action [SetVariable("persistent.sortby", button["SortByValue"]),
                         viewingpt.SortSlots
                         ]
 
