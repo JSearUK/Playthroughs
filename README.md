@@ -21,7 +21,7 @@ However: you are warned that, in it's current state, it may not behave properly.
 
 ## [ FILES ]
 *.../game/Mods/Playthroughs/gui/NotoSansSymbols2-Regular.ttf*
-- Glyph font provided, in order to utilise unicode text as symbols for icons. This permits the icons to support styling; notably scaling, colorisation and outlines. The font may be replaced, alternate glyphs selected, color changed, etc. Be aware that not all fonts have standard positioning; some manual adjustment may be necessary via the `line_leading` property of the text.
+- Glyph font provided, in order to utilise unicode text as symbols for icons. This permits the icons to support styling; notably scaling, colorisation and outlines. The font may be replaced, alternate glyphs selected, color changed, etc. Be aware that not all fonts have standard positioning; some manual adjustment may be necessary via the `glyphoffset` calibration variable.
 
 *.../game/Mods/Playthroughs/gui/slotforeground.png*\
 *.../game/Mods/Playthroughs/gui/slotbackground.png*
