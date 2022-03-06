@@ -686,7 +686,17 @@ screen display_slot_button(slot=None, title=None):
                 unhovered SetLocalVariable("hasfocus", False)
                 # This next line is a nested/compund action list, where several things may or may not happen
                 action [If( title == "Save",
-                            false=  [MakePtLast, FileLoad(filename, slot=True)],
+                            false=  [SetLocalVariable("hasfocus", False),
+                                     Confirm("Are you sure you want to load this save?{}".format(
+                                                "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\n\nSaved by version " + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
+                                                ),
+                                                confirm_selected=True,
+                                                no= [NullAction()],
+                                                yes=[MakePtLast,
+                                                     FileLoad(filename, confirm=False, slot=True)
+                                                     ]
+                                            )
+                                     ],
                             true=   [SetLocalVariable("hasfocus", False),
                                      Confirm("Are you sure you want to overwrite this save?{}".format(
                                                 "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\n\nSaved by version " + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
@@ -866,7 +876,7 @@ screen querynumber(query="Hmm?", preload="", minval=None, maxval=None, variable=
         $ raise Exception("Invalid argument - screen querystring([required] variable=\"variable_name\"):")
     modal True
     default currentnumber = preload     # This is the variable attached to the input field, and automatically updated by it. It's a string
-    default permitted = "0123456789"    # These are the characters accepted by the input field
+    default permitted = "0123456789"    # These are the characters accepted by the input field - which negates the possibilty of decimal or negative input
     use queryframe(container=container, bground=bground, query=query):
         if minval or maxval:
             text "{} {} {}".format(minval if minval else maxval, "through" if minval and maxval else "or", maxval if minval and maxval else ("more" if minval else "less")):
@@ -882,6 +892,8 @@ screen querynumber(query="Hmm?", preload="", minval=None, maxval=None, variable=
             allow permitted
             if tcolor is not None:
                 color tcolor
+            if maxval:
+                length len(str(maxval))
         # - Test for validity, handling an empty string. Assume valid unless proved otherwise
         python:
             number = int(currentnumber) if currentnumber.isdecimal() else 0
