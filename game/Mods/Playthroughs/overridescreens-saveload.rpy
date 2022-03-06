@@ -2,10 +2,11 @@
 define config.developer = True
 
 
-# [ NEXT TASKS ]
-# - Streamline and triple-check styles are behaving correctly
-# - Adapt all user-viewable strings to support translation (low priority)
-# - Write and test package against the feature list on GitHub
+# [ INTRODUCTION ]
+# This package should be self-explanatory for players; almost everything has its own hover/long-press tooltip.
+#
+# For developers, the latest version and its documentation can be found at:
+# (https://github.com/JSearUK/Ren-Py-Playthroughs-Save-System)
 
 
 # [ INITIALISATION - CORE - BEST TO LEAVE ALONE ]
@@ -95,18 +96,18 @@ init python:
         # - NOTE: If you want the icon to be able to respond to focus/sensitivity changes, use `None` for the "color" field
     config.self_closing_custom_text_tags["icon"] = icon_tag
     icons = [
-            {"name": "Delete", "symbol": "🞫", "color": "#FF0000"}, # 🞫
-            {"name": "Rename", "symbol": "🪶", "color": "#9933FF"}, # 🪶
-            {"name": "Locked", "symbol": "🔒", "color": "#FF0000"}, # 🔒
-            {"name": "Unlocked", "symbol": "🔓", "color": "#FFFF00"}, # 🔓
-            {"name": "SortByRecent", "symbol": "⭫", "color": None}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
-            {"name": "SortByNumber", "symbol": "#", "color": None}, # Alternates: 𝍸 #
-            {"name": "SortByLocked", "symbol": "🔒", "color": None}, # Alternates: 🔒
-            {"name": "SortByVersion", "symbol": "⚠", "color": None}, # Alternates: ⭭ 🗓 ⚠
-            {"name": "NewPlaythrough", "symbol": "🞤", "color": "#00FF00"}, # 🞤
-            {"name": "ViewRenpyPages", "symbol": "𝌅", "color": focuscolor}, # 𝌅
-            {"name": "ViewPlaythroughs", "symbol": "𝌮", "color": focuscolor} # 𝌮
-            ]
+             {"name": "Delete", "symbol": "🞫", "color": "#FF0000"}, # 🞫
+             {"name": "Rename", "symbol": "🪶", "color": "#9933FF"}, # 🪶
+             {"name": "Locked", "symbol": "🔒", "color": "#FF0000"}, # 🔒
+             {"name": "Unlocked", "symbol": "🔓", "color": "#FFFF00"}, # 🔓
+             {"name": "SortByRecent", "symbol": "⭫", "color": None}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
+             {"name": "SortByNumber", "symbol": "#", "color": None}, # Alternates: 𝍸 #
+             {"name": "SortByLocked", "symbol": "🔒", "color": None}, # Alternates: 🔒
+             {"name": "SortByVersion", "symbol": "⚠", "color": None}, # Alternates: ⭭ 🗓 ⚠
+             {"name": "NewPlaythrough", "symbol": "🞤", "color": "#00FF00"}, # 🞤
+             {"name": "ViewRenpyPages", "symbol": "𝌅", "color": focuscolor}, # 𝌅
+             {"name": "ViewPlaythroughs", "symbol": "𝌮", "color": focuscolor} # 𝌮
+             ]
     # Calculate the text and button sizes we will use, based upon a variety of factors
     SetMetrics()
 
@@ -147,18 +148,19 @@ style icon_text is fileslots_text:
 
 
 # [ TRANSFORMS ]
+# Vertical scrolling used by slot names
 transform scroll(chars=35):
     subpixel True
     ypos 1.0 yanchor 0.0
     linear 3.0 + (chars / 5) ypos 0.0 yanchor 1.0
     repeat
-
+# Horizontal scrolling used by the tooltip display
 transform marquee(chars=35):
     subpixel True
     xpos 1.0 xanchor 0.0
     linear 3.0 + (chars / 5) xpos 0.0 xanchor 1.0
     repeat
-
+# Hover/long-press horizontal scrolling used by Playthrough names
 transform hovermarquee(chars=10, xpos=0.5, xanchor=0.5):
     on hover:
         subpixel True
@@ -181,6 +183,7 @@ init python:
             self.slots = self.GetSlots()
             self.lockcount = [slot[4] for slot in self.slots].count("LOCKED")
             self.higherversioncount = [True if slot[5].lower() > config.version.lower() else False for slot in self.slots].count(True)
+            self.lowerversioncount = [True if slot[5].lower() < config.version.lower() else False for slot in self.slots].count(True)
             self.SortSlots()
 
         def GetSlots(self):
@@ -246,8 +249,7 @@ init python:
                 slotnumbers = [slot[i] for slot in self.slots if slot[0] != "+ New Save +"]
                 # Dodge 'max()' crashing over an empty list...
                 slotnumber = max(slotnumbers) if slotnumbers != [] else 0
-                slotnumber += 1
-                self.slots.insert(0, ["+ New Save +", "", slotnumber, "", "", ""])
+                self.slots.insert(0, ["+ New Save +", "", slotnumber + 1, "", "", ""])
 
 
 # [ FUNCTIONS ]
@@ -273,7 +275,7 @@ init -1 python:
         if subdata[0][2]:
             rv.insert(0, (renpy.TEXT_TAG, "font=" + glyphfont))
             rv.append((renpy.TEXT_TAG, "/font"))
-        #Return what we've constructed -
+        # Return what we've constructed -
         return rv
 
     def SetMetrics():
@@ -429,7 +431,8 @@ screen playthrough_file_slots(title):
             viewingpt = Playthrough(name=viewingptname)
             # NOTE: ONLY recreating this on playthrough name change broke a lot of things, because the UI would not update when it should (because the object hadn't changed).
             #       Thus, I've limited the damage by disallowing re-creation of the object if we're waiting on user input i.e. there's a modal screen over the top of the UI.
-            #       It's still not ideal, because events such as hovered/unhovered will still recreate the whole Playthrough object (complete with disk reads...)
+            #       It's still not ideal, because events such as hovered/unhovered will still recreate the whole Playthrough object (complete with disk reads...) but at least
+            #       it won't recreate it everytime a keypress is entered into an input box.
     use game_menu(title):
         style_prefix "fileslots"
         # By using 'side' in this manner, we put any tooltips in a strip across the top of the container we're in, and everything else in the center (below)
@@ -442,7 +445,7 @@ screen playthrough_file_slots(title):
                 # Display only what is inside the container, by cropping off anything outside it
                 at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                 # Collect and display any active tooltip on this page
-                $ help = GetTooltip() or ("" if viewingptname else "Use {=icon_text}[icon_newplaythrough]{/=} to start a new Playthrough")
+                $ help = GetTooltip() or ("" if viewingptname else "Use {icon=NewPlaythrough} to start a new Playthrough")
                 if help:
                     text help:
                         at marquee(len(help))
@@ -454,7 +457,7 @@ screen playthrough_file_slots(title):
                 spacing int(layoutseparator * 2)
                 # Playthroughs panel
                 vbox:
-                    xsize 0.35 * lastknownaccessibilityscale
+                    xsize 0.35 * (lastknownaccessibilityscale if lastknownaccessibilityscale > 1 else 1)
                     # This header and the panel below it are offset slightly to the left, to compensate for the width and spacing of the vertical scrollbar in the vpgrid below them
                     text "Playthroughs":
                         size gui.label_text_size
@@ -548,12 +551,12 @@ screen display_top_buttons(title=None):
 screen display_sorting_buttons():
     hbox:
         ysize yvalue
-        $ buttons = ([  {"Tooltip": "Sort slots by most recently changed first", "Icon": "{icon=SortByRecent}", "SortByValue": "lastmodified"},
-                        {"Tooltip": "Sort slots by highest slot number first", "Icon": "{icon=SortByNumber}", "SortByValue": "slotnumber"}
-                        ]
-                        + ([{"Tooltip": "Sort slots by showing locked slots first", "Icon": "{icon=SortByLocked}", "SortByValue": "lockedstatus"}] if enable_locking else [])
-                        + ([{"Tooltip": "Sort slots by lowest version number first", "Icon": "{icon=SortByVersion}", "SortByValue": "versionnumber"}] if enable_versioning else [])
-                        )
+        $ buttons = ([{"Tooltip": "Sort slots by most recently changed first", "Icon": "{icon=SortByRecent}", "SortByValue": "lastmodified"},
+                      {"Tooltip": "Sort slots by highest slot number first", "Icon": "{icon=SortByNumber}", "SortByValue": "slotnumber"}
+                      ]
+                      + ([{"Tooltip": "Sort slots by showing locked slots first", "Icon": "{icon=SortByLocked}", "SortByValue": "lockedstatus"}] if enable_locking else [])
+                      + ([{"Tooltip": "Sort slots by lowest version number first", "Icon": "{icon=SortByVersion}", "SortByValue": "versionnumber"}] if enable_versioning else [])
+                     )
         for button in buttons:
             button:
                 tooltip button["Tooltip"]
@@ -607,7 +610,16 @@ screen display_playthrough_button(i=None):
                         xysize (yvalue, yvalue)
                         text "{icon=Delete}":
                             line_leading iconoffset
-                        action [Confirm("Are you sure you want to delete this Playthrough?\n{}{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nLocked saves: " + str(viewingpt.lockcount) + "{/color}{/size}" if viewingpt.lockcount else "", "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\nSaves from a later version: " + str(viewingpt.higherversioncount) + "{/color}{/size}" if viewingpt.higherversioncount else ""), yes=Function(DeletePlaythrough), confirm_selected=True)
+                        action [(Confirm("Are you sure you want to delete this Playthrough?\n{}{}{}{}{}".format(
+                                            "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor)+ "}",
+                                            "\nLocked saves: " + str(viewingpt.lockcount) if viewingpt.lockcount and enable_locking else "",
+                                            "\nNewer saves: " + str(viewingpt.higherversioncount) if viewingpt.higherversioncount and enable_versioning else "",
+                                            "\nOlder saves: " + str(viewingpt.lowerversioncount) if viewingpt.lowerversioncount and enable_versioning else "",
+                                            "{/color}{/size}"
+                                            ),
+                                         yes=Function(DeletePlaythrough), confirm_selected=True
+                                         )
+                                 )
                                 ]
 
 # Provides functionality that displays, selects, modifies or deletes the save given by `slot` via the `use` feature
@@ -622,8 +634,8 @@ screen display_slot_button(slot=None, title=None):
             else:
                 # ...if 'editablename' is not available/permitted, use playthrough name and slot number; if 'slotnumber' is not available, 'lastmodified' and 'versionnumber' will hold the range
                 slotname = "{} {}".format(viewingptname, slotnumber if slotnumber else "[[{} to {}]".format(lastmodified, versionnumber))
+            # Reset this each time, since the last time through might have made it 'insensitivecolor', and it appears to be preserved between 'use's
             slottextcolor = textcolor
-                # Reset this each time, since the last time through might have made it 'insensitivecolor', and it appears to be preserved between 'use's
         # Handle any slot which has been inserted into the list for the purpose of creating a new save, and therefore is not yet a disk file:
         if filename == "+ New Save +":
             # Only produce the button if we're on the Save screen
@@ -659,22 +671,32 @@ screen display_slot_button(slot=None, title=None):
             default hasfocus = False
                 # Used to store whether or not the button has detected that it has focus, in order to apply a transform or not to a child text displayable
             $ timestamp = "{}".format(FileTime(filename, format=_("{#file_time}   <%H:%M ~ %A %B %d, %Y>"), slot=True))
+                # TODO: Possible optimization here; find out how to use the value we already have stored in `lastmodified` instead of this disk read
             button:
                 tooltip "{} save:  \"{}\"{}".format("Load" if title == "Load" else "Overwrite", slotname, timestamp)
                 xysize (1.0, slotheight)
                 background slotbackground
                 hover_foreground slotforeground
                 # Store hovered status in 'hasfocus', which controls activation of movement transforms. 'SetLocalVariable()' is used because this screen is 'use'd by other screens
-                # NOTE: 'unhovered' will not fire if e.g. the Accessibilty screen is accessed via kybind, then dismissed via the "Return" button. The transform runs until the next unhover
+                # WARNING: 'unhovered' will not fire if e.g. the Accessibilty screen is accessed via kybind, then dismissed via the "Return" button. The transform runs until the next unhover
                 hovered SetLocalVariable("hasfocus", True)
                 unhovered SetLocalVariable("hasfocus", False)
                 # This next line is a nested/compund action list, where several things may or may not happen
-                action [If(title == "Save",
+                action [If( title == "Save",
                             false=  [MakePtLast, FileLoad(filename, slot=True)],
                             true=   [SetLocalVariable("hasfocus", False),
-                                    Confirm("Are you sure you want to overwrite this save?{}".format("{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\n\nSaved by version " + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""), confirm_selected=True,
-                                        no= [NullAction()],
-                                        yes=[FileDelete(filename, slot=True, confirm=False), FileSave("{}-{}".format(viewingptname, slotnumber) if viewingptname in ["auto", "quick"] else "{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version), slot=True, confirm=False), MakePtLast])])
+                                     Confirm("Are you sure you want to overwrite this save?{}".format(
+                                                "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + "}\n\nSaved by version " + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
+                                                ),
+                                                confirm_selected=True,
+                                                no= [NullAction()],
+                                                yes=[FileDelete(filename, slot=True, confirm=False),
+                                                     FileSave("{}-{}".format(viewingptname, slotnumber) if viewingptname in ["auto", "quick"] else "{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version), slot=True, confirm=False),
+                                                     MakePtLast
+                                                     ]
+                                            )
+                                     ]
+                            )
                         ]
                 if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                     key "save_delete" action [SetLocalVariable("hasfocus", False), FileDelete(filename, slot=True)]
@@ -768,11 +790,10 @@ screen display_slot_button(slot=None, title=None):
 
 # [ ADDITIONAL SCREENS ]
 
-
 # { SUPPORT SCREEN } - Adds a box to the middle of a container, offering a text field to the player and storing the result in a specified variable. Designed for strings
 # - query         : [optional] : Passed to screen queryframe() - a string containing the box title/a question to put to the player
 # - preload       : [optional] : a string that initially populates the input field
-# - excludes      : [optional] : a string passed to the input field that contains forbidden characters. Not usually used; must contain "[{" if it is  - WARNING: This is not checked!
+# - excludes      : [optional] : a string passed to the input field that contains forbidden characters. Not usually used; MUST contain "[{" if it is  - WARNING: This is not checked!
 # - invalid       : [optional] : a list containing invalid responses; if currentstring is in the list, the 'isvalid' flag is set to False
 # - maxcharlen    : [optional] : an integer passed to the input field specifying the maximum character length of the response string
 # - maxpixelwidth : [optional] : an integer passed to the input field specifying the maximum size of the response string in pixels, when rendered using the input style
