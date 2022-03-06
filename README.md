@@ -93,7 +93,7 @@ define enable_iconcolors = True
     - Show Autosaves. This appears if `config.has_autosave` is True, and will grant access to the saves on the Ren'Py Auto page - these are common to both systems.
     - Show Quicksaves. This appears if `config.has_quicksave` is True, and will grant access to the saves on the Ren'Py Quick page. As with Autosaves, these are common to both systems.
     - Start a New Playthrough. This appears on the Save screen only, and will open an input box where a new Playthrough name may be entered. There are restrictions in place:
-      - The name may not be a number, as these are reserved for the paging system of the Ren'Py saves.
+      - The name may not be an integer, as these are reserved for the paging system of the Ren'Py saves.
       - The name may not exceed 70 characters, to minimize the chance of encountering an operating system filename-length error. The current character count and limit are shown in the box.
       - The name may not contain certain characters, or be empty, to avoid operating system filename-invalid errors. These characters are listed in the box.
       - The name must be unique.
