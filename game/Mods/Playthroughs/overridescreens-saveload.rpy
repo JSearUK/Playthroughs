@@ -445,7 +445,7 @@ screen playthrough_file_slots(title):
                 # Display only what is inside the container, by cropping off anything outside it
                 at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                 # Collect and display any active tooltip on this page
-                $ help = GetTooltip() or ("" if viewingptname else "Use {icon=NewPlaythrough} to start a new Playthrough")
+                $ help = GetTooltip() or ("" if persistent.playthroughslist else "Use {icon=NewPlaythrough} to start a new Playthrough")
                 if help:
                     text help:
                         at marquee(len(help))
@@ -467,16 +467,19 @@ screen playthrough_file_slots(title):
                     null height layoutseparator
                     # Display top panel, which contains 1-4 buttons
                     use display_top_buttons(title)
-                    null height layoutseparator
+                    # NOTE: This line is a kludge that solves a problem with `side` self-calculations; without it, the vbox above ignores its size if the vpgrid below is empty
+                    # - TODO: Create a demo to pass to Tom, then revert this to `null height layoutseparator`
+                    fixed xysize (1.0, layoutseparator)
                     # Vertically-scrolling vpgrid for the list of Playthroughs
-                    vpgrid:
-                        cols 1
-                        scrollbars "vertical"
-                        mousewheel True
-                        side_spacing layoutseparator
-                        spacing layoutseparator
-                        for i in range(len(persistent.playthroughslist) - 1, -1, -1):
-                            use display_playthrough_button(i)
+                    if persistent.playthroughslist:
+                        vpgrid:
+                            cols 1
+                            scrollbars "vertical"
+                            mousewheel True
+                            side_spacing layoutseparator
+                            spacing layoutseparator
+                            for i in range(len(persistent.playthroughslist) - 1, -1, -1):
+                                use display_playthrough_button(i)
                 # Fileslots panel
                 vbox:
                     xfill True
