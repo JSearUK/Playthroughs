@@ -457,7 +457,7 @@ screen playthrough_file_slots(title):
                 # Display only what is inside the container, by cropping off anything outside it
                 at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                 # Collect and display any active tooltip on this page
-                $ help = GetTooltip() or ("" if persistent.playthroughslist else _("Use {icon=NewPlaythrough} to start a new Playthrough"))
+                $ help = GetTooltip() or "" if persistent.playthroughslist else _("To start a new Playthrough, click {icon=NewPlaythrough}") + ("" if title == _("Save") else _(" on the Save screen"))
                 if help:
                     text help:
                         at marquee(len(help))
@@ -842,6 +842,27 @@ screen querystring(query=_("Hmm?"), preload="", excludes="[{", invalid=(), maxch
     modal True
     default currentstring = preload
     use queryframe(container=container, bground=bground, query=query):
+        # Assume validity unless tested otherwise
+        python:
+            global targetaction
+            isvalid, feedback = bool(currentstring), ""
+                # Empty strings are not valid
+            if isvalid:
+                # Conditional invalidation based on purpose of input can go here:
+                if currentstring.isdecimal():
+                    # If 'targetaction' is "newplaythroughname" or "changeplaythroughname", we need to prevent it from being an integer (because these are Ren'Py save system Page names)
+                    if targetaction in ("newplaythroughname", "changeplaythroughname"):
+                        isvalid = False
+                        feedback = _("{b}The Playthrough name may not be a whole number{/b}")
+                elif invalid:
+                    # Since Playthrough names must be unique, it is invalid if it already exists in the list
+                    if currentstring in invalid:
+                        isvalid = False
+                        feedback = _("{b}This Playthrough name already exists{/b}")
+        text feedback:
+            xalign 0.5
+            size gui.notify_text_size
+            color focuscolor
         if excludes != "[{":
             text _("Forbidden characters: [excludes!q]"):
                 xalign 0.5
@@ -855,28 +876,12 @@ screen querystring(query=_("Hmm?"), preload="", excludes="[{", invalid=(), maxch
         null height qfspacer
         input:
             value ScreenVariableInputValue("currentstring", default=True, returnable=False)
-            default preload
             exclude excludes
             length maxcharlen
             pixel_width maxpixelwidth
             xalign 0.5
             if tcolor is not None:
                 color tcolor
-        # Assume validity unless tested otherwise
-        python:
-            global targetaction
-            isvalid = bool(currentstring)
-                # Empty strings are not valid
-            if isvalid:
-                # Conditional invalidation based on purpose of input can go here:
-                if currentstring.isdecimal():
-                    if targetaction in ("newplaythroughname", "changeplaythroughname"):
-                        isvalid = False
-                            # If 'targetaction' is "newplaythroughname" or "changeplaythroughname", we need to prevent it from being an integer (because these are Ren'Py save system Page names)
-                elif invalid:
-                    if currentstring in invalid:
-                        isvalid = False
-                            # Since Playthrough names must be unique, it is invalid if it already exists in the list
         use ccframe(callingscreen="querystring", variable=variable, newvalue=currentstring, isvalid=isvalid)
 
 # { SUPPORT SCREEN } - Adds a box to the middle of a container, offering a text field to the player and storing the result in a specified variable. Designed for numbers
