@@ -75,6 +75,7 @@ define scrollbarsize = smallscreentextsize if renpy.variant("mobile") else gui.s
 define ptbuttonpos = (0.25, 0.18)
     # The position, as fractions of the (width, height) of the whole screen, of the button which switches to the Playthroughs system from the Ren'Py one
     # NOTE: If you set this to `None`, it will not display the button automatically. Instead, you must incorporate it your 'fileslots(title)' screen via 'use switch_button`
+define screenfont = gui.text_font # "_OpenDyslexic3-Regular.ttf"
 define textcolor = gui.text_color
 define hovercolor = gui.hover_color
 define focuscolor = "#FFF"
@@ -138,7 +139,9 @@ style fileslots_vscrollbar:
 style fileslots_text:
     outlines [(absolute(1), "#000", 0, 0)]
     color textcolor
+    font screenfont
     size textsize
+style fileslots_input is fileslots_text
 style fileslots_focus is fileslots_text:
     color focuscolor
 style fileslots_button is fileslots
