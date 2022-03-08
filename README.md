@@ -1,7 +1,7 @@
 # Ren-Py-Playthroughs-Save-System
 
 ## [ INTRODUCTION ]
-- This package overrides the `save():` and `load():` screens, defining classes, functions, transitions and styling to support augmented functionality.
+- This package overrides the `save():` and `load():` screens, defining classes, functions, transitions, transforms and styling to support augmented functionality.
 - The primary purpose is to provide an alternative, playthrough-style save/load system, whilst retaining access to the original system and files.
 
 ---
@@ -10,13 +10,49 @@ The aim is to create the system such that it can be safely dropped into any othe
 
 Current state: [Working] - not yet optimised for best practice, and may still contain bugs.
 ```
----
 ```yaml
 License: This code is free to use.
 ```
+---
 ```php
-However: you are warned that, in it's current state, it may not behave properly.
+Version 1.0
+
+RenPy 7.4.11.2266 and newer; backwards compatibility is limited.
+
+Windows: thorough testing, by myself.
+Android, Linux, Macintosh: general testing, by others:
 ```
+---
+
+## [ CREDITS ]
+*From the official Ren'Py Discord server:*
+
+### Fen
+- Provided code examples, and answered many, **many** questions!
+
+### Jeevant
+- Ran tests of the codebase on Android, and gave feedback on it.
+- Contributed code.
+- Introduced me to Wills747 🙂
+
+### Jiao
+- Confirmed viability of the codebase on a Macintosh. Thank you very much!
+
+### OscarSix
+- Showed an initial interest in the project, that helped me to stick with it 😅
+- Provided a partial overhaul from which I learned many things - not least how to collaborate on GitHub!
+
+### PastryIRL
+- Provided code that showed me how to integrate the glyph icons more elegantly, as custom text tags - very much appreciated!
+
+### Renpytom
+- Provided code that solved a particularly intractable problem: scrolling text that did not display outside of a self-sized container. Many thanks! 🙏
+
+### Wills747
+- Ran tests of the codebase on Linux and Android, giving feedback.
+- Contributed code.
+- Suggested several ways in which I could abstract parts of the functionality to reduce its impact on host projects 🙂
+
 ---
 
 ## [ FILES ]
