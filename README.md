@@ -51,7 +51,7 @@ Android, Linux, Macintosh: general testing, by others:
 ### Wills747
 - Ran tests of the codebase on Linux and Android, giving feedback.
 - Contributed code.
-- Suggested several ways in which I could abstract parts of the functionality to reduce its impact on host projects 🙂
+- Suggested several ways in which I could abstract functionality, to reduce its impact on host projects 🙂
 
 ---
 
