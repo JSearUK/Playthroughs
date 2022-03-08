@@ -55,6 +55,17 @@ Android, Linux, Macintosh: general testing, by others:
 
 ---
 
+## [ USAGE ]
+This package can most likely be used "as is"; just drop the files where they should go, and it should work correctly in the vast majority of cases. The following should be bourne in mind, though -
+- Excessive font sizes produced via code, sliders and the Accessibilty screen can make the package hard to use. Nevertheless, the package does its best to make sure that all interactive elements are both accessible and stay where they should. Should you run into difficulties:
+  - Note that hovering/long-pressing an element will provide details in the tooltip ribbon at the top of the area.
+  - If further adjustment seems needed, first make sure the "Text Size Scaling" on the Accessibilty screen (Shift-A) is set to where you want it *for the host project* - as well as any text size sliders in **Preferences**, or in any other packages.
+  - Finally, explicitly change the value of `textsize` in the `SetMetrics()` function.
+
+Every effort has been made to not interfere with either the style or the functioning of the host project. Additionally, the code has been liberally sprinkled with commentary, usually explaining both what is happening and why; this has been left in to help developers track down and fix/report any issues that may occur.
+
+---
+
 ## [ FILES ]
 *.../game/Mods/Playthroughs/gui/NotoSansSymbols2-Regular.ttf*
 - Glyph font provided, in order to utilise unicode text as symbols for icons. This permits the icons to support styling; notably scaling, colorisation and outlines. The font may be replaced, alternate glyphs selected, color changed, etc. Be aware that not all fonts have standard positioning; some manual adjustment may be necessary via the `glyphoffset` calibration variable.
@@ -68,21 +79,7 @@ Android, Linux, Macintosh: general testing, by others:
 
 ---
 
-## [ USAGE ]
-This package can most likely be used "as is"; just drop the files where they should go, and it should work correctly in the vast majority of cases. The following should be bourne in mind, though -
-- Excessive font sizes produced via code, sliders and the Accessibilty screen can make the package hard to use. Nevertheless, the package does its best to make sure that all interactive elements are both accessible and stay where they should. Should you run into difficulties:
-  - Note that hovering/long-pressing an element will provide details in the tooltip ribbon at the top of the area.
-  - If further adjustment seems needed, first make sure the "Text Size Scaling" on the Accessibilty screen (Shift-A) is set to where you want it *for the host project* - as well as any text size sliders in **Preferences**, or in any other packages.
-  - Finally, explicitly change the value of `textsize` in the `SetMetrics()` function.
-
-Every effort has been made to not interfere with either the style or the functioning of the host project. Additionally, the code has been liberally sprinkled with commentary, usually explaining both what is happening and why; this has been left in to help developers track down and fix/report any issues that may occur.
-
----
-
 ## [ FEATURES ]
-*To be finalised*\
-*Also serves as a QA checklist*
-
 ### Behaviour
 - The package is aware of when it in on a mobile device, and makes the following changes:
   - Input/confirmation boxes are moved to the top of the screen, to account for the space taken by an on-screen keyboard.
