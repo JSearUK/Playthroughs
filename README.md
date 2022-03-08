@@ -10,6 +10,7 @@ The aim is to create the system such that it can be safely dropped into any othe
 
 Current state: [Working] - not yet optimised for best practice, and may still contain bugs.
 ```
+---
 ```yaml
 License: This code is free to use.
 ```
