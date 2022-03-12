@@ -1,5 +1,5 @@
-# [ DEBUG TOGGLES - REMOVE ALL CODE REFERENCING THESE BINDINGS ]
-define config.developer = True
+# [ DEBUG TOGGLES ]
+define config.developer = "auto"
 
 
 # [ INTRODUCTION ]
@@ -9,6 +9,7 @@ define config.developer = True
 #
 # NOTE: Many Developers, at the time of writing this, were still releasing using 7.3.5.x. They are advised to update to at least 7.4.11.x
 # This package should retain functionality for a 7.3.5.x project, but some animation - and in particular, the glyph font - will not work properly.
+# However, improving backwards-compatibility remains a goal of this project.
 #
 # This package should be self-explanatory for players; almost everything has its own hover/long-press tooltip.
 #
@@ -23,14 +24,16 @@ init python:
 
 # [ INITIALISATION - CORE - BEST TO LEAVE ALONE ]
 define pathoffset = "Mods/Playthroughs/"
+default persistent.playthroughslist = []
 default persistent.save_system = "original"
 default persistent.sortby = "lastmodified"
-default persistent.playthroughslist = []
+default persistent.queryname = False
 default viewingptname = ""
 default viewingpt = []
 default userinput = ""
 default targetaction = ""
 default slotdetails = []
+default getfurtherinput = False
 init 1:
     # When exiting the game menu, or after loading, clear the variables that store the details of the playthrough being viewed. Do this by re-assigning a custom transition to those events
     # - NOTE: The specified duration needs to be greater than zero for the function to be called. Any transition where a function can be specified may be used
@@ -54,13 +57,15 @@ define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified", "slotnumber", "lockedstatus" and "versionnumber" by default
 define enable_iconcolors = True
     # This enables some glyphs to be color-coded. If False, all glyphs will be `textcolor`
+define enable_settings = True
+    # This enables visibility of the cog icon at the top-right, which in turn provides access to those settings considered useful to players
 
 
 # [ INITIALISATION - CONVENIENCE ]
 init 1:
+    # These override existing config settings. They are here purely for dev convenience, and can be commented out if they are interfering with existing code
     define config.has_autosave = True
     define config.has_quicksave = True
-        # These override existing config settings. They are here purely for dev convenience, and can be commented out if they are interfering with existing code
 
 
 # [ INITIALISATION - UI ]
@@ -119,7 +124,12 @@ init python:
              {"name": "SortByVersion", "symbol": "⚠", "color": None}, # Alternates: ⭭ 🗓 ⚠
              {"name": "NewPlaythrough", "symbol": "🞤", "color": "#00FF00"}, # 🞤
              {"name": "ViewRenpyPages", "symbol": "𝌅", "color": focuscolor}, # 𝌅
-             {"name": "ViewPlaythroughs", "symbol": "𝌮", "color": focuscolor} # 𝌮
+             {"name": "ViewPlaythroughs", "symbol": "𝌮", "color": focuscolor}, # 𝌮
+             {"name": "Help", "symbol": "❓", "color": interfacecolor}, # Alternates: ❓ 🕮 🛈
+             {"name": "Settings", "symbol": "🞹", "color": interfacecolor}, # Alternates: 🞹
+             {"name": "ToggleOff", "symbol": "☐", "color": None}, # Alternates: 🗷 ☒ ☐
+             {"name": "ToggleOn", "symbol": "☑", "color": "#00FF00"}, # Alternates: 🗹 ☑
+             {"name": "TODO", "symbol": "🛠", "color": "#FF6700"}, # Alternates: 🛠
              ]
     # Calculate the text and button sizes we will use, based upon a variety of factors
     SetMetrics()
@@ -273,7 +283,7 @@ init -1 python:
         # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
         global userinput, targetaction, viewingptname, viewingpt, slotdetails
-        userinput, targetaction, viewingptname, viewingpt, slotdetails = "", "", "", [], []
+        userinput, targetaction, viewingptname, viewingpt, slotdetails, getfurtherinput = "", "", "", [], [], False
         return 1.0
 
     def icon_tag(tag, argument):
@@ -303,7 +313,7 @@ init -1 python:
         # Enlarge text size if player is using a small screen
         if renpy.variant("mobile") and textsize < smallscreentextsize:
             textsize = smallscreentextsize
-        # yvalue is used to line up the edges of various UI elements, primarily buttons which need extra space around the text to look good
+        # yvalue is used to line up the edges of various UI elements, primarily buttons which need extra space around the text to look good. This is in pixels
         yvalue = int(textsize * 1.5 * lastknownaccessibilityscale)
         # Calculate the line_leading offset of the glyph font, to account for scaling
         iconoffset = int(yvalue * glyphoffset)
@@ -350,7 +360,7 @@ init -1 python:
 
     def ProcessUserInput():
         # This is an all-purpose function that is called whenever user input is available
-        global userinput, targetaction, viewingptname, viewingpt, slotdetails
+        global userinput, targetaction, viewingptname, viewingpt, slotdetails, getfurtherinput
         # The first thing to do is quit out unless there is something that actually needs processing (redundant ... unless someone puts it into an 'action' list...)
         if userinput:
             # Be sure we're dealing with a string. Pretty much anything will convert to a string - even objects. Also, using 'str()' on a string does not throw an exception, which is nice
@@ -377,18 +387,41 @@ init -1 python:
                 viewingpt = Playthrough(name=viewingptname)
             elif targetaction == "newslotnumber":
                 # This saves the new file if not already existent, then updates the playthrough list order
-                filename = "{0}-{1}-{0} {1}-Unlocked-{2}".format(viewingptname, userinput, config.version)
-                if renpy.can_load(filename):
-                    raise Exception(_("Error: File \"{}\" already exists").format(filename))
-                renpy.save(filename)
-                MakePtLast()
+                # NOTE: It is also the place where `persistent.queryname` is handled
+                if not persistent.queryname:
+                    # Normal functioning
+                    filename = "{0}-{1}-{0} {1}-Unlocked-{2}".format(viewingptname, userinput, config.version)
+                    if renpy.can_load(filename):
+                        raise Exception(_("Error: File \"{}\" already exists").format(filename))
+                    renpy.save(filename)
+                    MakePtLast()
+                else:
+                    # This handles the collection of an editablename from the player, if the relevant toggle is set
+                    if not getfurtherinput:
+                        # ...we've not yet been here yet, and thus `userinput` contains `slotnumber`. Set data/flags accordingly, then go get an `editablename`
+                        slotdetails = ["", userinput, "{} {}".format(viewingptname, userinput), "Unlocked", str(config.version)]
+                        userinput, getfurtherinput = "", True
+                        renpy.show_screen("querystring", query=_("Please enter the slot name"), preload="", excludes="[{<>:\"/\|?*-", maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
+                        # Update the display - otherwise we'd need to wait for the player to move the mouse off the button...
+                        renpy.restart_interaction()
+                    else:
+                        # ...we've been here already, and should now have an `editablename in `userinput`, AND the player has not cancelled out of any queries
+                        slotdetails[2] = userinput
+                        filename = viewingptname + "-".join(slotdetails)
+                        getfurtherinput = False
+                        if renpy.can_load(filename):
+                            raise Exception(_("Error: File \"{}\" already exists").format(filename))
+                        renpy.save(filename)
+                        MakePtLast()
             elif targetaction == "changeslotname":
                 # Update 'slotdetails' with 'userinput', then reflect any changes to the relevant disk file
                 slotdetails[2] = userinput
                 ReflectSlotChanges()
             else:
                 raise Exception(_("Error: 'userinput' ({}) sent to an invalid 'targetaction' ({})").format(userinput, targetaction))
-            userinput, targetaction = "", ""
+            # Reset control variables, unless we need to come back for a second pass for some reason
+            # (NOTE: Currently, the only reason to loop back in here is if `persistent.queryname` is True - and we need to go get a name)
+            userinput, targetaction = "", targetaction if getfurtherinput else ""
 
 
 # [ SCREENS ]
@@ -398,7 +431,7 @@ screen save():
     if persistent.save_system == "original":
         use file_slots(_("Save"))
         if ptbuttonpos:
-            use switch_button(ptbuttonpos[0], ptbuttonpos[1])
+            use playthrough_switch_button(ptbuttonpos[0], ptbuttonpos[1])
     elif persistent.save_system == "playthrough":
         use playthrough_file_slots(_("Save"))
     else:
@@ -410,14 +443,14 @@ screen load():
     if persistent.save_system == "original":
         use file_slots(_("Load"))
         if ptbuttonpos:
-            use switch_button(ptbuttonpos[0], ptbuttonpos[1])
+            use playthrough_switch_button(ptbuttonpos[0], ptbuttonpos[1])
     elif persistent.save_system == "playthrough":
         use playthrough_file_slots(_("Load"))
     else:
         $ raise Exception(_("Error: Invalid persistent.save_system - \"{}\"").format(persistent.save_system))
 
 # Provide a button to switch to the Playthroughs system
-screen switch_button(xpos=0.0, ypos=0.0):
+screen playthrough_switch_button(xpos=0.0, ypos=0.0):
     button:
         tooltip _("Switch to the Playthrough system")
         style_prefix "icon"
@@ -475,15 +508,15 @@ screen playthrough_file_slots(title):
                     xsize 0.35 * (lastknownaccessibilityscale if lastknownaccessibilityscale > 1 else 1)
                     # This header and the panel below it are offset slightly to the left, to compensate for the width and spacing of the vertical scrollbar in the vpgrid below them
                     text _("Playthroughs"):
-                        size gui.label_text_size
+                        size int(textsize * 1.5)
                         color interfacecolor
                         xalign 0.5
                         xoffset -round((scrollbarsize + layoutseparator) / 2)
                     null height layoutseparator
                     # Display top panel, which contains 1-4 buttons
-                    use display_top_buttons(title)
+                    use playthrough_display_top_buttons(title)
                     # NOTE: This line is a kludge that solves a problem with `side` self-calculations; without it, the vbox above ignores its size if the vpgrid below is empty
-                    # - TODO: Create a demo to pass to Tom, then revert this to `null height layoutseparator`
+                    #       - [EDIT: The self-sizing `side` behaviour is a documented feature, and not a bug! Possibly M$ was involved...]
                     fixed xysize (1.0, layoutseparator)
                     # Vertically-scrolling vpgrid for the list of Playthroughs
                     if persistent.playthroughslist:
@@ -499,13 +532,16 @@ screen playthrough_file_slots(title):
                 vbox:
                     xfill True
                     # Header
-                    text _("Saves"):
-                        size gui.label_text_size
-                        color interfacecolor
+                    hbox:
+                        xfill True
+                        text _("Saves"):
+                            size int(textsize * 1.5)
+                            color interfacecolor
+                        use playthrough_toolstrip
                     null height layoutseparator
                     # Provide (or not) buttons that alter the key that the slotslist is sorted on
                     if enable_sorting and viewingptname and viewingptname != "auto" and viewingptname != "quick":
-                        use display_sorting_buttons
+                        use playthrough_display_sorting_buttons
                         null height layoutseparator
                     # Display all the fileslots that are in the playthrough being viewed, keyed off 'viewingptname'. If no playthrough is being viewed, display nothing
                     if viewingptname != "":
@@ -517,10 +553,10 @@ screen playthrough_file_slots(title):
                             side_spacing layoutseparator
                             spacing layoutseparator
                             for slot in viewingpt.slots:
-                                use display_slot_button(slot, title)
+                                use playthrough_display_slot_button(slot, title)
 
 # Displays the top 1-4 buttons above the Playthroughs list
-screen display_top_buttons(title=None):
+screen playthrough_display_top_buttons(title=None):
     if title != None:
         hbox:
             ysize yvalue
@@ -562,11 +598,34 @@ screen display_top_buttons(title=None):
                     text "{icon=NewPlaythrough}":
                         line_leading iconoffset
                     action [SetVariable("targetaction", "newplaythroughname"),
-                            Show("querystring", query=_("{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}"), excludes="[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
+                            Show("querystring", query=_("Please give this Playthrough a unique name"), excludes="[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
                             ]
 
+screen playthrough_toolstrip():
+    # This displays at least one icon, at 75% size, in a strip to the far right of the "Saves" label: currently, Help and Settings
+    hbox:
+        align (1.0, 1.0)
+        xoffset -(scrollbarsize + (layoutseparator * 3))
+        button:
+            tooltip _("Show the Playthroughs Help Guide")
+            style_prefix "icon"
+            xysize (yvalue, yvalue)
+            text "{icon=Help}":
+                line_leading iconoffset
+            action [Show("playthroughs_helpguide")
+                    ]
+        if enable_settings:
+            button:
+                tooltip _("Show the Playthroughs Settings Panel")
+                style_prefix "icon"
+                xysize (yvalue, yvalue)
+                text "{icon=Settings}":
+                    line_leading iconoffset
+                action [Show("playthroughs_settings")
+                        ]
+
 # Displays any sorting buttons above the Slots list
-screen display_sorting_buttons():
+screen playthrough_display_sorting_buttons():
     hbox:
         ysize yvalue
         $ buttons = ([{"Tooltip": _("Sort slots by most recently changed first"), "Icon": "{icon=SortByRecent}", "SortByValue": "lastmodified"},
@@ -602,7 +661,7 @@ screen display_playthrough_button(i=None):
                         text "{icon=Rename}":
                             line_leading iconoffset
                         action [SetVariable("targetaction", "changeplaythroughname"),
-                                Show("querystring", query=_("{color=" + interfacecolor + "}Please give this Playthrough a unique name{/color}"), preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
+                                Show("querystring", query=_("Please give this Playthrough a unique name"), preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
                                 ]
             # Playthrough selection button in the center, sized last, which permits internal sizing to work correctly
             button:
@@ -641,7 +700,7 @@ screen display_playthrough_button(i=None):
                                 ]
 
 # Provides functionality that displays, selects, modifies or deletes the save given by `slot` via the `use` feature
-screen display_slot_button(slot=None, title=None):
+screen playthrough_display_slot_button(slot=None, title=None):
     if slot != None and title != None:
         python:
             # Unpack the details from the given slot
@@ -668,7 +727,10 @@ screen display_slot_button(slot=None, title=None):
                         align (0.5, 0.5)
                         hover_color hovercolor
                     action [SetVariable("targetaction", "newslotnumber"),
-                            If(slotnumber, true=SetVariable("userinput", slotnumber), false=Show("querynumber", query=_("{color="+interfacecolor+"}Please select a slot number:{/color}"), preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor))
+                            (If(slotnumber,
+                                true= [SetVariable("userinput", slotnumber)],
+                                false=[Show("querynumber", query=_("Please select a slot number"), preload=str(lastmodified), minval=lastmodified, maxval=versionnumber, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)])
+                             )
                             ]
         # Disable any slot that has a version number higher than this app; loading will likely fail and overwriting will likely lose data
         elif versionnumber.lower() > config.version.lower():
@@ -786,8 +848,6 @@ screen display_slot_button(slot=None, title=None):
                         #       Therefore, at least one icon is always showing, and we don't need to code for their absence.
                         # NOTE: "auto/quick" have empty 'editablename' and 'lockedstatus' fields, so only ever get the Delete button
                         xsize int(yvalue + (layoutseparator * 2))
-                            # BUG: If you don't have at least one dimension specified here, self-calculating doesn't properly position this within the 'side:'
-                            # TODO: Slap a demo together and give it to Tom
                         padding (layoutseparator, layoutseparator)
                             # Preserve a border of whatever the save slot background is
                         yalign 0.5
@@ -801,7 +861,7 @@ screen display_slot_button(slot=None, title=None):
                                         line_leading iconoffset
                                     action [SetVariable("targetaction", "changeslotname"),
                                             SetVariable("slotdetails", [filename, slotnumber, editablename, lockedstatus, versionnumber]),
-                                            Show("querystring", query=_("{color="+interfacecolor+"}Please enter the slot name:{/color}"), preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=maxinputchars, variable="userinput", bground="gui/frame.png", styleprefix="fileslots", tcolor=focuscolor)
+                                            Show("querystring", query=_("Please enter the slot name"), preload=editablename, excludes="[{<>:\"/\|?*-", maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
                                             ]
                             if enable_locking and lockedstatus:
                                 button:
@@ -823,6 +883,66 @@ screen display_slot_button(slot=None, title=None):
                                     action [FileDelete(filename, slot=True)
                                             ]
 
+# Displays a cancellable screen which makes available some player-controlled settings. Controls on this screen should directly alter persistent variables
+screen playthroughs_settings():
+    style_prefix "fileslots"
+    modal True
+    use queryframe(query=_("{u}Settings Panel{/u}")):
+        key "game_menu":
+            action [Hide("playthroughs_settings")]
+        null height yvalue
+        side "l c":
+            xalign 0.5
+            spacing layoutseparator
+            button:
+                tooltip _("New saves will be named {}.").format(_("by the player") if persistent.queryname else _("automatically"))
+                style_prefix "icon"
+                hover_background None
+                selected_hover_background textcolor
+                xysize (yvalue, yvalue)
+                align (0.5, 0.5)
+                text ("{icon=ToggleOn}" if persistent.queryname else "{icon=ToggleOff}"):
+                    line_leading iconoffset
+                action [ToggleVariable("persistent.queryname"),
+                        ]
+            frame:
+                size_group "setting"
+                xfill False
+                text "Toggle immediate naming of new saves":
+                    align (0.0, 0.5)
+                    text_align (0.5)
+                    color focuscolor
+        null height yvalue
+        textbutton _("Close"):
+            size_group "ccbuttons"
+            padding (layoutseparator, layoutseparator)
+            xalign 0.5
+            text_align (0.5, 0.5)
+            selected False
+            action [Hide("playthroughs_settings")]
+
+screen playthroughs_helpguide():
+    style_prefix "fileslots"
+    modal True
+    use queryframe(query=_("{u}Help Guide{/u}")):
+        key "game_menu":
+            action [Hide("playthroughs_helpguide")]
+        null height yvalue
+        vbox:
+            at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
+            text "{icon=TODO}   Under Construction!   {icon=TODO}":
+                at marquee(15)
+                xalign 0.5
+                color focuscolor
+        null height yvalue
+        textbutton _("Close"):
+            size_group "ccbuttons"
+            padding (layoutseparator, layoutseparator)
+            xalign 0.5
+            text_align (0.5, 0.5)
+            selected False
+            action [Hide("playthroughs_helpguide")]
+
 
 # [ ADDITIONAL SCREENS ]
 
@@ -838,7 +958,7 @@ screen display_slot_button(slot=None, title=None):
 # - bground       : [optional] : Passed to screen queryframe() - a Displayable for the background property of the largest non-transparent Frame(), which will be scaled to fit
 # - styleprefix   : [optional] : a string containing the style_prefix to apply to the whole box, including any children
 # - tcolor        : [optional] : a Color object (e.g. "#F00") for the text in the input field. This will override the default/specified styling
-screen querystring(query=_("Hmm?"), preload="", excludes="[{", invalid=(), maxcharlen=None, maxpixelwidth=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("mobile") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
+screen querystring(query=_("Hmm?"), preload="", excludes="[{", invalid=(), maxcharlen=None, maxpixelwidth=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("mobile") else config.screen_height), bground="gui/frame.png", styleprefix=None, tcolor=None):
     style_prefix styleprefix
     if variable is None:
         $ raise Exception(_("Invalid argument - screen querystring([required] variable=\"variable_name\"):"))
@@ -883,6 +1003,8 @@ screen querystring(query=_("Hmm?"), preload="", excludes="[{", invalid=(), maxch
             length maxcharlen
             pixel_width maxpixelwidth
             xalign 0.5
+            text_align 0.5
+            layout "subtitle"
             if tcolor is not None:
                 color tcolor
         use ccframe(callingscreen="querystring", variable=variable, newvalue=currentstring, isvalid=isvalid)
@@ -898,7 +1020,7 @@ screen querystring(query=_("Hmm?"), preload="", excludes="[{", invalid=(), maxch
 # - styleprefix   : [optional] : a string containing the style_prefix to apply to the whole box, including any children
 # - tcolor        : [optional] : a Color object (e.g. "#F00") for the text in the input field. This will override the default/specified styling
 # NOTE: This is a cut-down version of a screen in another project, since this version is not required to handle floats or negative numbers
-screen querynumber(query=_("Hmm?"), preload="", minval=None, maxval=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("mobile") else config.screen_height), bground=None, styleprefix=None, tcolor=None):
+screen querynumber(query=_("Hmm?"), preload="", minval=None, maxval=None, variable=None, container=(0, 0, config.screen_width, int(config.screen_height * 0.5) if renpy.variant("mobile") else config.screen_height), bground="gui/frame.png", styleprefix=None, tcolor=None):
     style_prefix styleprefix
     if variable is None:
         $ raise Exception(_("Invalid argument - screen querystring([required] variable=\"variable_name\"):"))
@@ -918,6 +1040,8 @@ screen querynumber(query=_("Hmm?"), preload="", minval=None, maxval=None, variab
         input:
             value ScreenVariableInputValue("currentnumber", default=True, returnable=False)
             xalign 0.5
+            text_align 0.5
+            layout "subtitle"
             default preload
             allow permitted
             if tcolor is not None:
@@ -937,7 +1061,7 @@ screen querynumber(query=_("Hmm?"), preload="", minval=None, maxval=None, variab
 # - container     : [optional] : an (x, y, xsize, ysize) tuple specifying the area that the input box will be centered in
 # - bground       : [optional] : a Displayable for the background property of the largest non-transparent Frame(), which will be scaled to fit
 # - query         : [optional] : a string containing the question to put to the player
-screen queryframe(container=(0, 0, config.screen_width, config.screen_height), bground=None, query=_("Hmm?")):
+screen queryframe(container=(0, 0, config.screen_width, config.screen_height), bground="gui/frame.png", query=_("Hmm?")):
     frame:
         area container
         background Frame("gui/overlay/confirm.png")
@@ -946,12 +1070,14 @@ screen queryframe(container=(0, 0, config.screen_width, config.screen_height), b
             background Frame(bground)
             xfill False
             yfill False
+            xmaximum 1.0
             padding (qfspacer, qfspacer)
             vbox:
                 at truecenter
                 text query:
-                    xalign 0.5
                     size gui.label_text_size
+                    xalign 0.5
+                    color interfacecolor
                 transclude
 
 # { SUPPORT SCREEN } - Tacks Confirm/Cancel buttons onto the bottom of whatever called it, and sets 'variable' to 'newvalue' if Confirm is clicked. Both buttons will Hide() 'callingscreen'
@@ -960,7 +1086,8 @@ screen queryframe(container=(0, 0, config.screen_width, config.screen_height), b
 screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
     if variable is None or callingscreen is None:
         $ raise Exception(_("Invalid argument - screen ccframe([required] variable=\"variable_name\" and callingscreen=\"screen_name\"):"))
-    key "game_menu" action [SetVariable("targetaction", ""), Hide(callingscreen)]
+    key "game_menu":
+        action [SetVariable("targetaction", ""), SetVariable("getfurtherinput", False), Hide(callingscreen)]
     null height qfspacer
     hbox:
         xalign 0.5
@@ -969,6 +1096,7 @@ screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
             size_group "ccbuttons"
             text_align (0.5, 0.5)
             padding (layoutseparator, layoutseparator)
+            selected False
             if isvalid == False:
                 sensitive False
             action (SetVariable(variable, newvalue), Hide(callingscreen))
@@ -976,4 +1104,5 @@ screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
             size_group "ccbuttons"
             text_align (0.5, 0.5)
             padding (layoutseparator, layoutseparator)
-            action [SetVariable("targetaction", ""), Hide(callingscreen)]
+            selected False
+            action [SetVariable("targetaction", ""), SetVariable("getfurtherinput", False), Hide(callingscreen)]
