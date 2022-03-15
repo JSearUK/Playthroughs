@@ -61,13 +61,6 @@ define enable_settings = True
     # This enables visibility of the cog icon at the top-right, which in turn provides access to those settings considered useful to players
 
 
-# [ INITIALISATION - CONVENIENCE ]
-init 1:
-    # These override existing config settings. They are here purely for dev convenience, and can be commented out if they are interfering with existing code
-    define config.has_autosave = True
-    define config.has_quicksave = True
-
-
 # [ INITIALISATION - UI ]
 define maxinputchars = 70
     # The maximum character count permitted for input fields
@@ -129,6 +122,7 @@ init python:
              {"name": "Settings", "symbol": "🞹", "color": interfacecolor}, # Alternates: 🞹
              {"name": "ToggleOff", "symbol": "☐", "color": None}, # Alternates: 🗷 ☒ ☐
              {"name": "ToggleOn", "symbol": "☑", "color": "#00FF00"}, # Alternates: 🗹 ☑
+             {"name": "Blank", "symbol": " ", "color": None}, # Alternates:  
              {"name": "TODO", "symbol": "🛠", "color": "#FF6700"}, # Alternates: 🛠
              ]
     # Calculate the text and button sizes we will use, based upon a variety of factors
@@ -284,7 +278,7 @@ init -1 python:
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
         global userinput, targetaction, viewingptname, viewingpt, slotdetails
         userinput, targetaction, viewingptname, viewingpt, slotdetails, getfurtherinput = "", "", "", [], [], False
-        return 1.0
+        return timeline
 
     def icon_tag(tag, argument):
         # This function returns transforms the `{icon=}` text tag to return the glyph we want in the correct font and color. Returns a warning if the glyph is not found
@@ -549,6 +543,7 @@ screen playthrough_file_slots(title):
                         vpgrid:
                             cols 1
                             scrollbars "vertical"
+                            pagekeys True
                             mousewheel True
                             side_spacing layoutseparator
                             spacing layoutseparator
@@ -921,6 +916,7 @@ screen playthroughs_settings():
             selected False
             action [Hide("playthroughs_settings")]
 
+# [ ON-SCREEN HELP GUIDE]
 screen playthroughs_helpguide():
     style_prefix "fileslots"
     modal True
@@ -928,12 +924,44 @@ screen playthroughs_helpguide():
         key "game_menu":
             action [Hide("playthroughs_helpguide")]
         null height yvalue
-        vbox:
-            at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
-            text "{icon=TODO}   Under Construction!   {icon=TODO}":
-                at marquee(15)
-                xalign 0.5
-                color focuscolor
+        viewport:
+            at truecenter
+            xmaximum 0.9
+            ymaximum 0.8
+            xoffset int((scrollbarsize * 0.5) + layoutseparator / 2)
+            scrollbars "vertical"
+            spacing layoutseparator
+            arrowkeys True
+            pagekeys True
+            mousewheel True
+            draggable True
+            vbox:
+                spacing (layoutseparator * 4)
+                for p in HelpText:
+                    # Check for truth. This disables sections that refer to operations disabled via Dev toggles
+                    if p[0]:
+                        hbox:
+                            spacing (layoutseparator * 3)
+                            # Check for an icon and, if present, display it
+                            if p[4]:
+                                button: # This is done this way for layout and positioning consistency. The lack of an action is deliberate
+                                    style_prefix "icon"
+                                    xysize (yvalue, yvalue)
+                                    text p[4]:
+                                        # Check if we have an actual icon, instead something that was marked for translation, and adjust position accordingly
+                                        line_leading (iconoffset if p[4][len(p[4]) - 1] == "}" else -iconoffset)
+                            vbox:
+                                xfill True
+                                yminimum yvalue
+                                text p[5]:
+                                    yalign 0.5
+                                    rest_indent yvalue
+                                    newline_indent (False if p[4] else True)
+                                    size (int(textsize * p[2]) if p[2] else textsize)
+                                    color (p[3] if p[3] else focuscolor)
+                                    xalign (p[1] if p[1] else 0.0)
+                                    layout "greedy"
+                                    justify True
         null height yvalue
         textbutton _("Close"):
             size_group "ccbuttons"
@@ -1106,3 +1134,50 @@ screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
             padding (layoutseparator, layoutseparator)
             selected False
             action [SetVariable("targetaction", ""), SetVariable("getfurtherinput", False), Hide(callingscreen)]
+
+
+# Sets up the constant which formatting and content for the `playthroughs_helpguide():` screen
+# Format: ["<condition", <alignment>, <size_multiplier>, <color>, "<icon(s)>",  "<string>"],
+define HelpText = [ [True, 0.5, None, None, None, "{image=Mods/Playthroughs/gui/chimera.png}"],
+                    [True, 0.5, None, None, None, _("\nHello, and welcome!")],
+                    [True, 0.5, None, None, None, _("\nMy name is James, and I am the principal designer of Playthroughs!")],
+                    [True, 0.5, 1.5, textcolor, None, _("\nIntroduction")],
+                    [True, None, None, None, None, _("Playthroughs is the first project I have ever released. It's also the first I have ever completed; I'm a hobbyist coder, and therefore any bugs which remain are almost certainly mine. That said, Playthroughs has been extensively tested, and should work on all of the operating systems officially supported by {a=https://www.renpy.org/latest.html}Ren'Py 7.4.11.2266{/a} and newer.\n Backwards compatibility is possible, but not guaranteed - before submitting bug reports, please check that the project it has been added to was built using at least this version of Ren'Py. This information can be found on the third line of the {i}log.txt{/i} file, which is in the same folder as the game executable.")],
+                    [True, 0.5, 1.5, textcolor, None, _("\nCredits")],
+                    [True, None, None, None, None, _("The creation, testing and release of Playthroughs would not have been possible without help from the following people from the official Ren'Py Discord server - many, many thanks to all of you!")],
+                    [True, 0.5, None, interfacecolor, None, "\n{b}Fen, Jeevant, Jiao, OscarSix, PastryIRL, RenpyTom, Wills747{/b}"],
+                    [True, 0.5, 1.5, textcolor, None, _("\nPurpose")],
+                    [True, 0.5, None, None, None, _("{i}To provide an alternative, Skyrim-style save/load system, whilst retaining access to the original system and files.{/i}")],
+                    [True, None, None, None, None, _("Such a system clusters saves into groups linked by theme; in the Skyrim example, saves belong to different player characters. When playing a visual novel, it would usually be more useful to create Playthroughs that are linked to the main character's relationships, morality, or goals.\nYou may freely create new Playthroughs mid-game, save into any Playthrough at any time, and switch back and forth between the two systems. Such flexibility lends itself to, for example, the exploration of shorter sub-plots within the main narrative.")],
+                    [True, 0.5, None, None, None, _("Playthroughs gives you the freedom to organise your saves however you like!")],
+                    [True, 0.5, 1.5, textcolor, None, _("\nUsage")],
+                    [True, None, None, insensitivecolor, None, _("{i}General{/i}")],
+                    [True, None, None, None, "{icon=Blank}", _("Almost everything has its own tooltip information, which can be accessed by hovering over it with the mouse, navigating to it with the keyboard or, if using a mobile device, long-pressing on it.")],
+                    [True, None, None, None, "{icon=Blank}", _("Assuming standard keybindings: right-clicking with the mouse, pressing ESC on the keyboard or clicking on {b}Cancel{/b} should cancel out of any open input/confirmation box.")],
+                    [True, None, None, insensitivecolor, None, _("\n{i}Original Ren'Py Interface{/i}")],
+                    [True, None, None, None, "{icon=ViewPlaythroughs}", _("This icon is displayed when the Ren'Py Save/Load screens are visible. It transfers you to Playthroughs mode.")],
+                    [True, None, None, insensitivecolor, None, _("\n{i}Playthroughs Interface{/i}")],
+                    [True, None, None, None, "{icon=Blank}", _("The tooltip ribbon, running across the top of the panel. Hovering over (or long-pressing on) an interactive element will usually display further information here, such as the timestamp of a save.")],
+                    [True, None, None, None, "{icon=Help}", _("Shows this panel, which offers a brief guide to its functionality and acknowledges accreditation.")],
+                    [enable_settings, None, None, None, "{icon=Settings}", _("Shows the Settings panel, which presents options for customising the player experience.")],
+                    [True, None, None, None, "{icon=ViewRenpyPages}", _("Transfers you to Ren'Py mode.")],
+                    [config.has_autosave, None, None, None, _("{#auto_page}A"), _("Selects the games' Autosaves, which are common to both systems.\nThese can be loaded or deleted, but not created{}").format(_(", overwritten, renamed or sorted.") if enable_renaming and enable_sorting else (_(", overwritten or renamed.") if enable_renaming else (_(", overwritten or sorted.") if enable_sorting else _(" or overwritten."))))],
+                    [config.has_quicksave, None, None, None, _("{#quick_page}Q"), _("Selects the games' Quicksaves which, again, are common to both systems.\nThese can be loaded, deleted and overwritten, but not created{}").format(_(", renamed or sorted.") if enable_renaming and enable_sorting else (_(" or renamed.") if enable_renaming else (_(" or sorted.") if enable_sorting else ".")))],
+                    [True, None, None, None, "{icon=NewPlaythrough}", _("Creates and names a new Playthrough, which may then contain saves. This does not appear on the Load screen.\nPlaythrough names must follow these rules:\n{i} • The name may not be a whole number, as these are reserved for the paging system of the Ren'Py saves.\n • The name may not exceed 70 characters, to minimize the chance of an OS filename-length error.\n • The name may not contain illegal characters, or be empty, to prevent an OS filename-invalid error.\n • The name must be unique.{/i}\nThese checks are made during input, not after - which, under certain circumstances, can lead to slowdown.\nOnce a name is considered valid, the {b}Confirm{/b} button will become available.")],
+                    [enable_sorting, None, None, None, "{icon=SortByRecent}", _("Sorts the saves by most recent first.")],
+                    [enable_sorting, None, None, None, "{icon=SortByNumber}", _("Sorts the saves by slot number, highest first. Each save has a slot number, which uniquely identifies it. This permits the position of a save within the flow of the narrative to be respected, even if overwriting it later (e.g. to make a slight adjustment).")],
+                    [(enable_sorting and enable_locking), None, None, None, "{icon=SortByLocked}", _("Sorts the saves by locked status, with locked saves presented first. This is useful when e.g. tracking down locked saves from a while ago, to see if you still want them before deleting the whole Playthrough.")],
+                    [(enable_sorting and enable_versioning), None, None, None, "{icon=SortByVersion}", _("Sorts the saves by version string, alphanumerically, \"highest\" first. Note, though, that the version string is controlled by the developer of the host project and, as such, may not even be changed between releases.")],
+                    [True, None, None, None, "{icon=Blank}", _("The {color=") + textcolor + _("}+ New Save +{/color} button makes a new save in the currently selected Playthrough.\nBy default, this save is named with the Playthrough name and its slot number.") + (_(" However:") if enable_settings or enable_sorting else "") + (_("\n • You may toggle immediate naming in the Settings panel.") if enable_settings else "") + (_("\n • If the saves are being sorted by slot number, the button may be covering a range of slots - you would then be prompted to pick a slot to save into.") if enable_sorting else "")],
+                    [True, None, None, insensitivecolor, None, _("\n{i}Individual Playthroughs, when selected:{/i}")],
+                    [enable_renaming, None, None, None, "{icon=Rename}", _("Appearing to the left of the Playthrough name, this icon permits the renaming of a Playthrough. The new name must follow the same rules as the old one, listed above. By default, renaming a Playthrough will also partially rename its saves to match the new name{}.").format(_(" - this behaviour can be toggled off in the Settings panel") if enable_settings else "")],
+                    [True, None, None, None, "{icon=Delete}", _("Appearing to the right of the Playthrough name, this icon allows the player to {i}irreversably delete the entire Playthrough and all of its saves{/i}. A confirmation box will appear, possibly giving further information.")],
+                    [True, None, None, insensitivecolor, None, _("\n{i}Individual Saves{/i}")],
+                    [True, None, None, None, "{icon=Blank}", _("If the name starts scrolling vertically, you may either overwrite the save or load it, depending upon which Menu screen you are viewing.")],
+                    [enable_renaming, None, None, None, "{icon=Rename}", _("This icon lets you rename the save, whenever you like. It must still not contain illegal characters, or exceed a length of 70, but it need not be unique, and whole numbers are permitted.")],
+                    [enable_locking, None, None, None, "{icon=Unlocked}", _("Indicates that the save is unlocked; clicking this will lock the save. Locked saves cannot be deleted") + "{}".format(_(", overwritten or renamed") if enable_renaming else _(" or overwritten")) + _(" by the player via the Saves list. Note, though, that deleting the Playthrough it belongs to {i}will{/i} delete any locked saves, and that locking a save does not stop your OS from erasing it.")],
+                    [enable_locking, None, None, None, "{icon=Locked}", _("Indicates that the save is locked. Clicking this will unlock the save, restoring functionality.")],
+                    [True, None, None, None, "{icon=Delete}", _("Deletes the save. A confirmation box will appear, possibly providing further information.")],
+                    [enable_versioning, None, None, None, None, _("\nPlaythroughs supports rudimentary versioning, in that it will warn you about saves made by a different version of the host project:\n • If a save appears to have an {i}older{/i} version string, the thumbnail will be darkened and relevant information displayed over it. Other than that, the save will both look and respond as it normally would.\n • If the save appears to have a {i}newer{/i} version string, it cannot be interacted with. This is in order to prevent crashes, loss of progress or loss of data. There will be no thumbnail; instead, a warning message will be displayed alongside the name and version string.")],
+                    [True, 0.5, 1.5, textcolor, None, _("\nThank you for playing, and enjoy your game!")],
+                   ]
