@@ -28,6 +28,7 @@ default persistent.playthroughslist = []
 default persistent.save_system = "original"
 default persistent.sortby = "lastmodified"
 default persistent.queryname = False
+default persistent.partialreplace = True
 default viewingptname = ""
 default viewingpt = []
 default userinput = ""
@@ -57,8 +58,9 @@ define enable_sorting = True
     # This enables the player to sort Playthrough slotlists on a specified key. It ships with "lastmodified", "slotnumber", "lockedstatus" and "versionnumber" by default
 define enable_iconcolors = True
     # This enables some glyphs to be color-coded. If False, all glyphs will be `textcolor`
-define enable_settings = True
+define enable_settings = any([enable_renaming])
     # This enables visibility of the cog icon at the top-right, which in turn provides access to those settings considered useful to players
+    # - Currently, it enables the Settings panel if any of its toggles' dependencies are True
 
 
 # [ INITIALISATION - UI ]
@@ -100,30 +102,32 @@ init python:
     # Locate a font file containing the glyphs we will use instead of image-based icons, below. This permits styling of the icons
         # - NOTE: To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2
     glyphfont = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
+    # TODO: Write code that checks the Ren'Py version number, and sets `glyphsok` to False if our glyph font won't work with it
+    glyphsok = True
     # Fonts do not always have standard positioning. `glyphoffset` can be used to adjust the line-leading property, should the gyphs not appear vertically centered in buttons
         # - NOTE: This is expressed as fraction of the button height (`yvalue`), to support UI scaling. Negative values will move the glyph upwards, positive will move it downwards
-    glyphoffset = 0.15
+    glyphoffset = 0.15 if glyphsok else 0.0
     # Set the glyphs we will use for each icon. These are referenced as a custom text tag e.g. "To create a new Playthrough, click {icon=NewPlaythrough}."
         # - NOTE: If you want the icon to be able to respond to focus/sensitivity changes, use `None` for the "color" field
     config.self_closing_custom_text_tags["icon"] = icon_tag
     icons = [
-             {"name": "Delete", "symbol": "🞫", "color": "#FF0000"}, # 🞫
-             {"name": "Rename", "symbol": "🪶", "color": "#9933FF"}, # 🪶
-             {"name": "Locked", "symbol": "🔒", "color": "#FF0000"}, # 🔒
-             {"name": "Unlocked", "symbol": "🔓", "color": "#FFFF00"}, # 🔓
-             {"name": "SortByRecent", "symbol": "⭫", "color": None}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
-             {"name": "SortByNumber", "symbol": "#", "color": None}, # Alternates: 𝍸 #
-             {"name": "SortByLocked", "symbol": "🔒", "color": None}, # Alternates: 🔒
-             {"name": "SortByVersion", "symbol": "⚠", "color": None}, # Alternates: ⭭ 🗓 ⚠
-             {"name": "NewPlaythrough", "symbol": "🞤", "color": "#00FF00"}, # 🞤
-             {"name": "ViewRenpyPages", "symbol": "𝌅", "color": focuscolor}, # 𝌅
-             {"name": "ViewPlaythroughs", "symbol": "𝌮", "color": focuscolor}, # 𝌮
-             {"name": "Help", "symbol": "❓", "color": interfacecolor}, # Alternates: ❓ 🕮 🛈
-             {"name": "Settings", "symbol": "🞹", "color": interfacecolor}, # Alternates: 🞹
-             {"name": "ToggleOff", "symbol": "☐", "color": None}, # Alternates: 🗷 ☒ ☐
-             {"name": "ToggleOn", "symbol": "☑", "color": "#00FF00"}, # Alternates: 🗹 ☑
-             {"name": "Blank", "symbol": " ", "color": None}, # Alternates:  
-             {"name": "TODO", "symbol": "🛠", "color": "#FF6700"}, # Alternates: 🛠
+             {"name": "Delete",             "color": "#FF0000",         "fallback": " X ",          "symbol": "🞫"}, # 🞫
+             {"name": "Rename",             "color": "#9933FF",         "fallback": "_/ ",          "symbol": "🪶"}, # 🪶
+             {"name": "Locked",             "color": "#FF0000",         "fallback": "o¬",           "symbol": "🔒"}, # 🔒
+             {"name": "Unlocked",           "color": "#FFFF00",         "fallback": "( )",          "symbol": "🔓"}, # 🔓
+             {"name": "SortByRecent",       "color": None,              "fallback": " ^ ",          "symbol": "⭫"}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
+             {"name": "SortByNumber",       "color": None,              "fallback": " # ",          "symbol": "#"}, # Alternates: 𝍸 #
+             {"name": "SortByLocked",       "color": None,              "fallback": "o¬",           "symbol": "🔒"}, # Alternates: 🔒
+             {"name": "SortByVersion",      "color": None,              "fallback": " ! ",          "symbol": "⚠"}, # Alternates: ⭭ 🗓 ⚠
+             {"name": "NewPlaythrough",     "color": "#00FF00",         "fallback": " + ",          "symbol": "🞤"}, # 🞤
+             {"name": "ViewRenpyPages",     "color": focuscolor,        "fallback": ":::",          "symbol": "𝌅"}, # 𝌅
+             {"name": "ViewPlaythroughs",   "color": focuscolor,        "fallback": "=|=",          "symbol": "𝌮"}, # 𝌮
+             {"name": "Help",               "color": interfacecolor,    "fallback": " ? ",          "symbol": "❓"}, # Alternates: ❓ 🕮 🛈
+             {"name": "Settings",           "color": interfacecolor,    "fallback": " * ",          "symbol": "🞹"}, # Alternates: 🞹
+             {"name": "ToggleOff",          "color": None,              "fallback": "[  ]",          "symbol": "☐"}, # Alternates: 🗷 ☒ ☐
+             {"name": "ToggleOn",           "color": "#00FF00",         "fallback": "[x]",          "symbol": "☑"}, # Alternates: 🗹 ☑
+             {"name": "Blank",              "color": None,              "fallback": "   ",          "symbol": " "}, # Alternates:  
+             {"name": "TODO",               "color": "#FF6700",         "fallback": "{u}/!\{/u}",   "symbol": "🛠"}, # Alternates: 🛠
              ]
     # Calculate the text and button sizes we will use, based upon a variety of factors
     SetMetrics()
@@ -278,12 +282,12 @@ init -1 python:
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
         global userinput, targetaction, viewingptname, viewingpt, slotdetails
         userinput, targetaction, viewingptname, viewingpt, slotdetails, getfurtherinput = "", "", "", [], [], False
-        return timeline
+        return 1.0
 
     def icon_tag(tag, argument):
         # This function returns transforms the `{icon=}` text tag to return the glyph we want in the correct font and color. Returns a warning if the glyph is not found
         # Extract the data, if it is present in the list of `icons`. Otherwise, construct an error message
-        subdata = [[icon["symbol"], icon["color"], True] for icon in icons if icon["name"] == argument] or [[_("[Icon not found: \"{}\"]").format(argument), "#F00", False]]
+        subdata = [[icon["symbol" if glyphsok else "fallback"], icon["color"], glyphsok] for icon in icons if icon["name"] == argument] or [[_("[Icon not found: \"{}\"]").format(argument), "#F00", False]]
         # Begin building the return value (`rv`)
         rv = [(renpy.TEXT_TEXT, subdata[0][0])]
         # Insert and append `{color=}` tags, if color is wanted
@@ -372,7 +376,7 @@ init -1 python:
                 for slot in viewingpt.slots:
                     slotdetails = slot
                     slotdetails.pop(1)
-                    if enable_locking == False or slotdetails[3] != "LOCKED":
+                    if persistent.partialreplace and (enable_locking == False or slotdetails[3] != "LOCKED"):
                         slotdetails[2] = slotdetails[2].replace(oldptname, viewingptname)
                     ReflectSlotChanges()
                 if persistent.playthroughslist.count(oldptname) != 1:
@@ -886,27 +890,29 @@ screen playthroughs_settings():
         key "game_menu":
             action [Hide("playthroughs_settings")]
         null height yvalue
-        side "l c":
-            xalign 0.5
-            spacing layoutseparator
-            button:
-                tooltip _("New saves will be named {}.").format(_("by the player") if persistent.queryname else _("automatically"))
-                style_prefix "icon"
-                hover_background None
-                selected_hover_background textcolor
-                xysize (yvalue, yvalue)
-                align (0.5, 0.5)
-                text ("{icon=ToggleOn}" if persistent.queryname else "{icon=ToggleOff}"):
-                    line_leading iconoffset
-                action [ToggleVariable("persistent.queryname"),
-                        ]
-            frame:
-                size_group "setting"
-                xfill False
-                text "Toggle immediate naming of new saves":
-                    align (0.0, 0.5)
-                    text_align (0.5)
-                    color focuscolor
+        for t in SettingsToggles:
+            if t[0]:
+                side "l c":
+                    xalign 0.5
+                    spacing layoutseparator
+                    button:
+                        tooltip (t[3] if eval(t[1]) else t[4])
+                        style_prefix "icon"
+                        hover_background None
+                        selected_hover_background textcolor
+                        xysize (yvalue, yvalue)
+                        align (0.5, 0.5)
+                        text ("{icon=ToggleOn}" if eval(t[1]) else "{icon=ToggleOff}"):
+                            line_leading iconoffset
+                        action [ToggleVariable(t[1]),
+                                ]
+                    frame:
+                        size_group "setting"
+                        xfill False
+                        text t[2]:
+                            align (0.0, 0.5)
+                            text_align (0.5)
+                            color focuscolor
         null height yvalue
         textbutton _("Close"):
             size_group "ccbuttons"
@@ -915,6 +921,7 @@ screen playthroughs_settings():
             text_align (0.5, 0.5)
             selected False
             action [Hide("playthroughs_settings")]
+
 
 # [ ON-SCREEN HELP GUIDE]
 screen playthroughs_helpguide():
@@ -1136,8 +1143,15 @@ screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
             action [SetVariable("targetaction", ""), SetVariable("getfurtherinput", False), Hide(callingscreen)]
 
 
-# Sets up the constant which formatting and content for the `playthroughs_helpguide():` screen
-# Format: ["<condition", <alignment>, <size_multiplier>, <color>, "<icon(s)>",  "<string>"],
+# Sets up the constant that holds data about the toggles available within the `playthroughs_settings():` screen
+# Format: [<condition>, "<persistent.variable>", "Text", "TooltipTrue", "TooltipFalse"],
+define SettingsToggles = [  [enable_renaming, "persistent.queryname", _("Immediate naming of new saves"), _("New saves will be named by the player"), _("New saves will be named automatically")],
+                            [enable_renaming, "persistent.partialreplace", _("Partial renaming of saves, when renaming Playthroughs"), _("For each save name, replace the old Playthrough name with the new one"), _("Do not alter the save names when renaming the Playthrough")],
+                          ]
+
+
+# Sets up the constant which holds formatting and content for the `playthroughs_helpguide():` screen
+# Format: [<condition>, <alignment>, <size_multiplier>, <color>, "<icon(s)>",  "<string>"],
 define HelpText = [ [True, 0.5, None, None, None, "{image=Mods/Playthroughs/gui/chimera.png}"],
                     [True, 0.5, None, None, None, _("\nHello, and welcome!")],
                     [True, 0.5, None, None, None, _("\nMy name is James, and I am the principal designer of Playthroughs!")],
