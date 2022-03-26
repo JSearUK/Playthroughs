@@ -76,7 +76,7 @@ Every effort has been made to not interfere with either the style or the functio
 
 *.../game/Mods/Playthroughs/gui/slotforeground.png*\
 *.../game/Mods/Playthroughs/gui/slotbackground.png*
-- Default image files provided for save slot background and foreground. These may be replaced or edited as desired. By default, the foreground image is tinted via code to match the color scheme of the GUI of the host project; this can be altered or disabled. By default, the background image is simply transparent.
+- Default image files provided for save slot background and foreground. These may be replaced or edited as desired. By default, the foreground image is grayscale and tinted via code to match the color scheme of the GUI of the host project; this can be altered or disabled. By default, the background image is transparent.
 
 *.../game/Mods/Playthroughs/overridescreens-saveload.rpy*
 - The code file minimally disturbs pre-existing game code: the `save():` and `load():` screens are overridden, as are `config.after_load_transition` and `config.exit_transition`. The last two are used to reset the Playthroughs system when loading, or exiting the menus; if your code makes non-default use of these transitions already, please integrate the code found in the `ResetPtVars()` function into them.
