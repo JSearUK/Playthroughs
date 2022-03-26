@@ -113,7 +113,8 @@ define enable_sorting = True
 define enable_iconcolors = True
     # This enables some glyphs to be color-coded. If False, all glyphs will be `textcolor`.
 define enable_settings = any([enable_renaming])
-    # This enables visibility of the cog icon at the top-right, which in turn provides access to those settings considered useful to players
+    # This enables visibility of the cog icon at the top-right, which in turn provides access to those
+    # settings considered useful to players.
     # - Currently, it enables the Settings panel if any of its toggles' dependencies are True
 
 ```
