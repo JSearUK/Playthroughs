@@ -280,7 +280,7 @@ init -1 python:
     def ResetPtVars(timeline=1.0):
         # This is a dummy transition timeline function that instantly returns as complete. The entire purpose is to reset the playthrough variables
         # TODO: This should be altered so that it still performs the function of whatever transition was in place before we hijacked it - learn how
-        global userinput, targetaction, viewingptname, viewingpt, slotdetails
+        global userinput, targetaction, viewingptname, viewingpt, slotdetails, getfurtherinput
         userinput, targetaction, viewingptname, viewingpt, slotdetails, getfurtherinput = "", "", "", [], [], False
         return 1.0
 
@@ -485,7 +485,7 @@ screen playthrough_file_slots(title):
         # - Because of the way in which side calculates its layout (center last), subcontainers get accurate metrics with which to handle their own calculations
         side "t c":
             # Top tooltip, displayed above everything else.
-                # TODO: scroll only if contents outsize the container. Currently: Always scrolls - [EDIT:] No way found to do this. Ren'Py 8 may provide access to internal metrics
+                # TODO: Scroll only if contents outsize the container. Currently: Always scrolls - [EDIT:] No way found to do this. Ren'Py 8 may provide access to internal metrics
             fixed:
                 ysize yvalue
                 # Display only what is inside the container, by cropping off anything outside it
@@ -514,7 +514,7 @@ screen playthrough_file_slots(title):
                     # Display top panel, which contains 1-4 buttons
                     use playthrough_display_top_buttons(title)
                     # NOTE: This line is a kludge that solves a problem with `side` self-calculations; without it, the vbox above ignores its size if the vpgrid below is empty
-                    #       - [EDIT: The self-sizing `side` behaviour is a documented feature, and not a bug! Possibly M$ was involved...]
+                    #       - [EDIT: The self-sizing `side` behaviour is a documented feature, and not a bug!]
                     fixed xysize (1.0, layoutseparator)
                     # Vertically-scrolling vpgrid for the list of Playthroughs
                     if persistent.playthroughslist:
@@ -753,9 +753,6 @@ screen playthrough_display_slot_button(slot=None, title=None):
                 $ timestamp = "{}".format(datetime.fromtimestamp(float(lastmodified)).strftime(_("{#file_time}   <%H:%M ~ %A %B %d, %Y>")))
                     # NOTE: This crashed in the specific scenario whereby Quit is clicked while viewingpt is "auto" (on either page) and at least one slot had gained focus
                     #       By defensively checking for `lastmodified` and explicitly casting it to a float, we avoid the crash... so far
-                    # TODO: Possible optimization here; find out how to use the value we already have stored in `lastmodified` instead of this disk read
-                    # - [EDIT:] Done... but what is the compatibility impact of importing datetime?
-                    # - TODO: Test this as dropped into a pre-existing distribution (.exe)
                     # - TODO: Install multiple copies of Ren'Py version, and test dropping into older distributions (particularly 7.3.5)
                     # - ORIGINAL: `$ timestamp = "{}".format(FileTime(filename, format=_("{#file_time}   <%H:%M ~ %A %B %d, %Y>"), slot=True))`
             button:
@@ -765,6 +762,7 @@ screen playthrough_display_slot_button(slot=None, title=None):
                 hover_foreground slotforeground
                 # Store hovered status in 'hasfocus', which controls activation of movement transforms. 'SetLocalVariable()' is used because this screen is 'use'd by other screens
                 # WARNING: 'unhovered' will not fire if e.g. the Accessibilty screen is accessed via kybind, then dismissed via the "Return" button. The transform runs until the next unhover
+                # - [EDIT:] This will be fixed in the next official release of Ren'Py, and may already be in the nightlies
                 hovered SetLocalVariable("hasfocus", True)
                 unhovered SetLocalVariable("hasfocus", False)
                 # This next line is a nested/compund action list, where several things may or may not happen
