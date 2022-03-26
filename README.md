@@ -12,7 +12,7 @@ Current state: [Working] - not yet optimised for best practice, and may still co
 ```
 ---
 ```yaml
-License: This code will be free to use, but is NOT YET. Official updates on this matter will be here.
+License: This code is free to use.
 ```
 ---
 ```php
@@ -54,6 +54,9 @@ Android, Linux, Macintosh: general testing, by others:
 - Contributed code.
 - Suggested several ways in which I could abstract functionality, to reduce its impact on host projects 🙂
 
+I selected a logo for myself, which is free to use and modify both personally and commercially, provided accreditation is given:
+<a href="https://www.flaticon.com/free-icons/chimera" title="chimera icons">Chimera icons created by Freepik - Flaticon</a>
+
 ---
 
 ## [ USAGE ]
@@ -76,7 +79,7 @@ Every effort has been made to not interfere with either the style or the functio
 - Default image files provided for save slot background and foreground. These may be replaced or edited as desired. By default, the foreground image is tinted via code to match the color scheme of the GUI of the host project; this can be altered or disabled. By default, the background image is simply transparent.
 
 *.../game/Mods/Playthroughs/overridescreens-saveload.rpy*
-- The code file minimally disturbs pre-existing game code: the `save():` and `load():` screens are overridden; `config.has_autosave` and `config.has_quicksave` are overridden - although these can be commented out; `config.after_load_transition` and `config.exit_transition` are also overridden. The last two are used to reset the Playthroughs system when loading, or exiting the menus.
+- The code file minimally disturbs pre-existing game code: the `save():` and `load():` screens are overridden, as are `config.after_load_transition` and `config.exit_transition`. The last two are used to reset the Playthroughs system when loading, or exiting the menus; if your code makes non-default use of these transitions already, please integrate the code found in the `ResetPtVars()` function into them.
 
 ---
 
@@ -88,7 +91,7 @@ Every effort has been made to not interfere with either the style or the functio
   - Vertical scrollbars are thickened for ease of use (this package makes no use of horizontal scrollbars).
 - The package does its best to match the color scheme of the host project.\
   If needed, this can be tweaked at `[ INITIALISATION - UI ]`
-- Basic behaviours can be disabled via five code toggles in the `[ INITIALISATION - BEHAVIOUR TOGGLES ]` section:
+- Basic behaviours can be disabled via code toggles in the `[ INITIALISATION - BEHAVIOUR TOGGLES ]` section:
 ```py
 # NOTE: The 'enable_' defines below will still perform their default behaviour if set to 'False' - but the
 #       player will either not see their effect, or not be able to alter it.
@@ -109,6 +112,10 @@ define enable_sorting = True
     # It ships with "lastmodified", "slotnumber", "lockedstatus" and "versionnumber" by default.
 define enable_iconcolors = True
     # This enables some glyphs to be color-coded. If False, all glyphs will be `textcolor`.
+define enable_settings = any([enable_renaming])
+    # This enables visibility of the cog icon at the top-right, which in turn provides access to those settings considered useful to players
+    # - Currently, it enables the Settings panel if any of its toggles' dependencies are True
+
 ```
 
 ### Interaction
@@ -131,7 +138,7 @@ define enable_iconcolors = True
       - The name may not exceed 70 characters, to minimize the chance of encountering an operating system filename-length error. The current character count and limit are shown in the box.
       - The name may not contain certain characters, or be empty, to avoid operating system filename-invalid errors. These characters are listed in the box.
       - The name must be unique.
-      - These checks are made during input which, under certain circumstances, can sometimes lead to slowdown. Once a name is considered valid, the **Confirm** button will become available.
+      - These checks are made during input which, under certain circumstances, may lead to slowdown. Once a name is considered valid, the **Confirm** button will become available.
   - A list of Playthroughs, presented in order of most recently changed.
     - Focusing a Playthrough will change the text color to `hovercolor`, and begin scrolling the name horizontally to ensure that it is all visible.
     - Selecting a Playthrough will change the text color to `hovercolor`, the background color to `textcolor`, populate the Saves panel, and make 1-2 additional buttons available at the sides of the Playthrough name:
@@ -143,6 +150,9 @@ define enable_iconcolors = True
     - Sort by slot number, highest first.
     - If `enable_locking` is true, Sort by locked status, locked first.
     - If `enable_versioning` is true, Sort by host project version number, lowest first.
+  - A horizontal panel of 1+ buttons:
+    - An icon that opens the Help Guide, which is an on-screen panel offering a brief guide on usage. Topics that have been disabled via Dev toggles are not referred to.
+    - If `enable_settings` is true, an icon that opens the Settings Panel. This lets the player customise some behaviour according to personal preference.
   - If a Playthrough is selected, a list of save buttons, sorted by most recently changed (unless another sort key is selected). All interactive elements in these buttons will append the timestamp of the save to the tooltip. Each save button consists of:
     - A background image, found at *.../game/Mods/Playthroughs/gui/slotbackground.png*; this may instead be any displayable, or None.
     - A thumbnail image, showing the gameplay screen just prior to making the save, at the left and vertically centered. If the save is from an older version of the host project, and `enable_versioning` is true, the thumbnail will be dimmed and version information will be displayed over its center.
