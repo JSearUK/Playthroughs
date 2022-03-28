@@ -7,8 +7,8 @@ define config.developer = "auto"
 # WARNING: Whilst this package can be dropped into older, precompiled distributions, there is no guarantee that it will work as anticipated.
 # It was built with, and works in, Ren'Py 7.4.11.2266. It should work for all versions newer than this.
 #
-# NOTE: Many Developers, at the time of writing this, were still releasing using 7.3.5.x. They are advised to update to at least 7.4.11.x
-# This package should retain functionality for a 7.3.5.x project, but some animation - and in particular, the glyph font - will not work properly.
+# NOTE: Many Developers, at the time of writing this, were still releasing using 7.3.5.606. They are advised to update to at least 7.4.3.1414
+# This package should retain functionality for a 7.3.5.606 project, but - currently - the glyph font will not work properly.
 # However, improving backwards-compatibility remains a goal of this project.
 #
 # This package should be self-explanatory for players; almost everything has its own hover/long-press tooltip.
@@ -94,16 +94,16 @@ init python:
     try:
         ColorizeMatrix
     except NameError:
-        # ColorizeMatrix is not available. Use another form of focus highlighting e.g. Solid("#FFFFFF1F"), im. functions, etc. In this case, simply the default image, which is a white border
-        slotforeground = renpy.displayable(Frame(pathoffset + "gui/slotforeground.png"))
+        # ColorizeMatrix is not available. Use another form of focus highlighting e.g. Solid("#FFFFFF1F"), im. functions, etc.
+        slotforeground = renpy.displayable(Frame(im.MatrixColor(pathoffset + "gui/slotforeground.png", im.matrix.colorize(Color("#000"), Color(textcolor)))))
     else:
-        # ColorizeMatrix is available. Use it to tint the image to match the UI color
+        # ColorizeMatrix is available. Use it to tint the image to match textcolor
         slotforeground = renpy.displayable(Frame(Transform(pathoffset + "gui/slotforeground.png", matrixcolor = ColorizeMatrix(Color("#000"), Color(textcolor)))))
     # Locate a font file containing the glyphs we will use instead of image-based icons, below. This permits styling of the icons
         # - NOTE: To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2
     glyphfont = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
     # TODO: Write code that checks the Ren'Py version number, and sets `glyphsok` to False if our glyph font won't work with it
-    glyphsok = True
+    glyphsok = renpy.version_tuple >= (7, 4, 3, 1414)
     # Fonts do not always have standard positioning. `glyphoffset` can be used to adjust the line-leading property, should the gyphs not appear vertically centered in buttons
         # - NOTE: This is expressed as fraction of the button height (`yvalue`), to support UI scaling. Negative values will move the glyph upwards, positive will move it downwards
     glyphoffset = 0.15 if glyphsok else 0.0
@@ -185,12 +185,12 @@ transform marquee(chars=35):
     repeat
 # Hover/long-press horizontal scrolling used by Playthrough names
 transform hovermarquee(chars=10, xpos=0.5, xanchor=0.5):
-    on hover:
+    on hover, selected_hover:
         subpixel True
         xpos 1.0 xanchor 0.0
         linear 3.0 + (chars / 5) xpos 0.0 xanchor 1.0
         repeat
-    on idle:
+    on idle, selected_idle:
         xanchor xanchor xpos xpos
 
 
@@ -1005,8 +1005,12 @@ screen querystring(query=_("Hmm?"), preload="", excludes="[{", invalid=(), maxch
                 # Empty strings are not valid
             if isvalid:
                 # Conditional invalidation based on purpose of input can go here:
-                if currentstring.isdecimal():
+                if u"{}".format(currentstring).isdecimal():
                     # If 'targetaction' is "newplaythroughname" or "changeplaythroughname", we need to prevent it from being an integer (because these are Ren'Py save system Page names)
+                    # The `.isdecimal()` method is only available on unicode objects. `.isdigit()` is a problem because e.g. exponents, like ², are also considered to be a digit.
+                    # Explicitly converting to unicode resolves compat with 7.3.5. However, Py3 uses unicode natively for strings and might get upset about converting to itself
+                    # TODO: Test on 7.5, when it's out. Still uses Py2.7, so should be okay.
+                    # TODO: Test on 8. Uses Py3. <crosses fingers>
                     if targetaction in ("newplaythroughname", "changeplaythroughname"):
                         isvalid = False
                         feedback = _("{b}The Playthrough name may not be a whole number{/b}")
@@ -1083,7 +1087,7 @@ screen querynumber(query=_("Hmm?"), preload="", minval=None, maxval=None, variab
                 length len(str(maxval))
         # - Test for validity, handling an empty string. Assume valid unless proved otherwise
         python:
-            number = int(currentnumber) if currentnumber.isdecimal() else 0
+            number = int(currentnumber) if u"{}".format(currentnumber).isdecimal() else 0
             isvalid = True
             if minval: isvalid = False if minval > number else isvalid
             if maxval: isvalid = False if maxval < number else isvalid
