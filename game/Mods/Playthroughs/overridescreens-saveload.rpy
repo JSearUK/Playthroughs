@@ -700,7 +700,7 @@ screen display_playthrough_button(i=None):
 
 # Provides functionality that displays, selects, modifies or deletes the save given by `slot` via the `use` feature
 screen playthrough_display_slot_button(slot=None, title=None):
-    if slot != None and title != None:
+    if slot != None and title in [_("Load"), _("Save")]:
         python:
             # Unpack the details from the given slot
             filename, lastmodified, slotnumber, editablename, lockedstatus, versionnumber = slot
@@ -761,37 +761,63 @@ screen playthrough_display_slot_button(slot=None, title=None):
                 background slotbackground
                 hover_foreground slotforeground
                 # Store hovered status in 'hasfocus', which controls activation of movement transforms. 'SetLocalVariable()' is used because this screen is 'use'd by other screens
-                # WARNING: 'unhovered' will not fire if e.g. the Accessibilty screen is accessed via kybind, then dismissed via the "Return" button. The transform runs until the next unhover
+                # WARNING: 'unhovered' will not fire if e.g. the Accessibilty screen is accessed via keybind, then dismissed via the "Return" button. The transform runs until the next unhover
                 # - [EDIT:] This will be fixed in the next official release of Ren'Py, and may already be in the nightlies
                 hovered SetLocalVariable("hasfocus", True)
                 unhovered SetLocalVariable("hasfocus", False)
-                # This next line is a nested/compund action list, where several things may or may not happen
-                action [If( title == _("Save"),
-                            false=  [SetLocalVariable("hasfocus", False),
-                                     Confirm(_("Are you sure you want to load this save?{}").format(
-                                                "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + _("}\n\nSaved by version ") + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
-                                                ),
-                                                confirm_selected=True,
-                                                no= [NullAction()],
-                                                yes=[MakePtLast,
-                                                     FileLoad(filename, confirm=False, slot=True)
-                                                     ]
-                                            )
-                                     ],
-                            true=   [SetLocalVariable("hasfocus", False),
-                                     Confirm(_("Are you sure you want to overwrite this save?{}").format(
-                                                "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + _("}\n\nSaved by version ") + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
-                                                ),
-                                                confirm_selected=True,
-                                                no= [NullAction()],
-                                                yes=[FileDelete(filename, slot=True, confirm=False),
-                                                     FileSave("{}-{}".format(viewingptname, slotnumber) if viewingptname in ("auto", "quick") else "{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version), slot=True, confirm=False),
-                                                     MakePtLast
-                                                     ]
-                                            )
-                                     ]
-                            )
-                        ]
+                # This next line (was) a nested/compound action list, where several things may or may not happen
+                if title == _("Load"):
+                    action [SetLocalVariable("hasfocus", False),
+                            Confirm(_("Are you sure you want to load this save?{}").format(
+                                      "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + _("}\n\nSaved by version ") + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
+                                     ),
+                                     confirm_selected=True,
+                                     no= [NullAction()],
+                                     yes=[MakePtLast,
+                                          FileLoad(filename, confirm=False, slot=True)
+                                         ]
+                                   )
+                           ]
+                else: # Must be _("Save"), because above
+                    action [SetLocalVariable("hasfocus", False),
+                            Confirm(_("Are you sure you want to overwrite this save?{}").format(
+                                      "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + _("}\n\nSaved by version ") + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
+                                     ),
+                                     confirm_selected=True,
+                                     no= [NullAction()],
+                                     yes=[FileDelete(filename, slot=True, confirm=False),
+                                          FileSave("{}-{}".format(viewingptname, slotnumber) if viewingptname in ["auto", "quick"] else "{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version), slot=True, confirm=False),
+                                          MakePtLast
+                                         ]
+                                   )
+                           ]
+                # Original code for above - which also works in 7.4.11.x, but not in 7.3.5.606
+#                action [If( title == _("Save"),
+#                            false=  [SetLocalVariable("hasfocus", False),
+#                                     Confirm(_("Are you sure you want to load this save?{}").format(
+#                                                "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + _("}\n\nSaved by version ") + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
+#                                                ),
+#                                                confirm_selected=True,
+#                                                no= [NullAction()],
+#                                                yes=[MakePtLast,
+#                                                     FileLoad(filename, confirm=False, slot=True)
+#                                                     ]
+#                                            )
+#                                     ],
+#                            true=   [SetLocalVariable("hasfocus", False),
+#                                     Confirm(_("Are you sure you want to overwrite this save?{}").format(
+#                                                "{size=" + str(gui.notify_text_size) + "}{color=" + str(insensitivecolor) + _("}\n\nSaved by version ") + str(versionnumber) + "{/color}{/size}" if enable_versioning and versionnumber != "" and versionnumber != config.version else ""
+#                                                ),
+#                                                confirm_selected=True,
+#                                                no= [NullAction()],
+#                                                yes=[FileDelete(filename, slot=True, confirm=False),
+#                                                     FileSave("{}-{}".format(viewingptname, slotnumber) if viewingptname in ("auto", "quick") else "{}-{}-{}-Unlocked-{}".format(viewingptname, slotnumber, editablename, config.version), slot=True, confirm=False),
+#                                                     MakePtLast
+#                                                     ]
+#                                            )
+#                                     ]
+#                            )
+#                        ]
                 if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
                     key "save_delete" action [SetLocalVariable("hasfocus", False), FileDelete(filename, slot=True)]
                 if enable_versioning and versionnumber != "" and versionnumber != config.version:
