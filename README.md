@@ -74,6 +74,9 @@ Every effort has been made to not interfere with either the style or the functio
 *.../game/Mods/Playthroughs/gui/NotoSansSymbols2-Regular.ttf*
 - Glyph font provided, in order to utilise unicode text as symbols for icons. This permits the icons to support styling; notably scaling, colorisation and outlines. The font may be replaced, alternate glyphs selected, color changed, etc. Be aware that not all fonts have standard positioning; some manual adjustment may be necessary via the `glyphoffset` calibration variable.
 
+*.../game/Mods/Playthroughs/gui/chimera.png*
+- Personal logo, used in the Help Guide.
+
 *.../game/Mods/Playthroughs/gui/slotforeground.png*\
 *.../game/Mods/Playthroughs/gui/slotbackground.png*
 - Default image files provided for save slot background and foreground. These may be replaced or edited as desired. By default, the foreground image is grayscale and tinted via code to match the color scheme of the GUI of the host project; this can be altered or disabled. By default, the background image is transparent.
