@@ -12,7 +12,7 @@ Current state: [Working] - not yet optimised for best practice, and may still co
 ```
 ---
 ```yaml
-License: This code is free to use.
+License: This code will be free to use, but IS NOT YET PUBLICALLY RELEASED!
 ```
 ---
 ```php
