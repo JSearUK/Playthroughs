@@ -207,10 +207,8 @@ transform hovermarquee(chars=10, xpos=0.5, xanchor=0.5):
 init python:
     # Reference: (https://www.renpy.org/doc/html/save_load_rollback.html#save-functions-and-variables)
     class Playthrough:
-        def __init__(self, name=None):
+        def __init__(self, name):
             # Constructor - defines and initialises the new object properly
-            if name == None:
-                raise Exception(_("Invalid argument - object '{self}' of class 'Playthrough': __init__([required] name=string)"))
             self.name = name
             self.slots = self.GetSlots()
             self.lockcount = [slot[4] for slot in self.slots].count("LOCKED")
@@ -245,7 +243,7 @@ init python:
             # - NOTE: The '.sort()' method mutates the original list, making changes in place
             slotkeys = ["filename", "lastmodified", "slotnumber", "editablename", "lockedstatus", "versionnumber"]
             # ... Since "auto"/"quick" saves are performed cyclically, sorting by "lastmodified" is the same as sorting by "slotnumber" would be for Playthrough slotlists
-            sortby = "lastmodified" if (enable_sorting == False or self.name in ["auto", "quick"]) else persistent.sortby
+            sortby = "lastmodified" if (not enable_sorting or self.name in ["auto", "quick"]) else persistent.sortby
             # ... Default to "lastmodified" if the requested 'sortby' cannot be found in 'slotkeys[]', and store the index of the required key
             sortkey = slotkeys.index(sortby) if sortby in slotkeys else slotkeys.index("lastmodified")
             # ... Perform the sort. The '.sort()' method uses a lambda to find the key data to sort against for each item(list of slot details) in the iterable(list of slots)
@@ -332,7 +330,7 @@ init -1 python:
         # Check there is only one copy of 'viewingptname' in the persistent list. If so, delete it and append a new version to the end of the list. If not, throw a bug-checking exception
         # - NOTE: Don't bother if we are viewing "auto" or "quick"
         global viewingptname
-        if viewingptname != "auto" and viewingptname != "quick":
+        if viewingptname not in ("auto", "quick"):
             if persistent.playthroughslist.count(viewingptname) != 1:
                 raise Exception(_("Error: {} one copy of playthrough \"{}\" in the persistent list").format(_("Less than") if persistent.playthroughslist.count(viewingptname) < 1 else _("More than"), viewingptname))
             persistent.playthroughslist.remove(viewingptname)
@@ -341,7 +339,7 @@ init -1 python:
     def ReflectSlotChanges():
         # This accesses 'slotdetails' as a list of slot details, then checks that the original file exists; if so, it builds a new filename and renames it
         global slotdetails, viewingptname
-        if renpy.can_load(slotdetails[0]) == False:
+        if not renpy.can_load(slotdetails[0]):
             raise Exception(_("Error: File \"{}\" does not exist").format(slotdetails[0]))
         newfilename = viewingptname
         for subdata in slotdetails[1:]:
@@ -356,7 +354,7 @@ init -1 python:
         # Reload the playthrough, to be sure of having current and unmodified information
         viewingpt.slots = viewingpt.GetSlots()
         for slot in viewingpt.slots:
-            if renpy.can_load(slot[0]) == False:
+            if not renpy.can_load(slot[0]):
                 raise Exception(_("Error: File \"{}\" does not exist").format(slot[0]))
             renpy.unlink_save(slot[0])
         if persistent.playthroughslist.count(viewingptname) != 1:
@@ -384,7 +382,7 @@ init -1 python:
                 for slot in viewingpt.slots:
                     slotdetails = slot
                     slotdetails.pop(1)
-                    if persistent.partialreplace and (enable_locking == False or slotdetails[3] != "LOCKED"):
+                    if persistent.partialreplace and (not enable_locking or slotdetails[3] != "LOCKED"):
                         slotdetails[2] = slotdetails[2].replace(oldptname, viewingptname)
                     ReflectSlotChanges()
                 if persistent.playthroughslist.count(oldptname) != 1:
@@ -474,7 +472,7 @@ screen playthrough_file_slots(title):
         if preferences.font_size != lastknownaccessibilityscale or gui.text_size != textsize:
             SetMetrics()
         # Check the validity of the playthrough name that we're viewing. If invalid, find the latest valid name. If none found, set 'viewingptname' to an empty string
-        if ((config.has_autosave and viewingptname == "auto") or (config.has_quicksave and viewingptname == "quick") or (persistent.playthroughslist and viewingptname in persistent.playthroughslist)) == False:
+        if not ((config.has_autosave and viewingptname == "auto") or (config.has_quicksave and viewingptname == "quick") or (persistent.playthroughslist and viewingptname in persistent.playthroughslist)):
             viewingptname = persistent.playthroughslist[-1] if persistent.playthroughslist else ""
         # Populate the viewed playthrough if 'viewingptname' is not an empty string, unless we're expecting user input
         if viewingptname != "" and targetaction == "":
@@ -798,7 +796,7 @@ screen playthrough_display_slot_button(slot=None, title=None):
                                      ]
                             )
                         ]
-                if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
+                if not enable_locking or (enable_locking and lockedstatus != "LOCKED"):
                     key "save_delete" action [SetLocalVariable("hasfocus", False), FileDelete(filename, slot=True)]
                 if enable_versioning and versionnumber != "" and versionnumber != config.version:
                     tooltip _("{} save:  \"{}\"{}").format(_("Attempt to Load") if title == _("Load") else _("Overwrite"), slotname, timestamp)
@@ -857,7 +855,7 @@ screen playthrough_display_slot_button(slot=None, title=None):
                             # Preserve a border of whatever the save slot background is
                         yalign 0.5
                         vbox:
-                            if enable_renaming and editablename and (enable_locking == False or (enable_locking and lockedstatus != "LOCKED")):
+                            if enable_renaming and editablename and (not enable_locking or (enable_locking and lockedstatus != "LOCKED")):
                                 button:
                                     tooltip _("Rename save:  \"{}\"{}").format(slotname, timestamp)
                                     style_prefix "icon"
@@ -878,7 +876,7 @@ screen playthrough_display_slot_button(slot=None, title=None):
                                     action [SetVariable("slotdetails", [filename, slotnumber, editablename, "Unlocked" if lockedstatus == "LOCKED" else "LOCKED", versionnumber]),
                                             ReflectSlotChanges
                                             ]
-                            if enable_locking == False or (enable_locking and lockedstatus != "LOCKED"):
+                            if not enable_locking or (enable_locking and lockedstatus != "LOCKED"):
                                 button:
                                     tooltip _("Delete save:  \"{}\"{}").format(slotname, timestamp)
                                     style_prefix "icon"
@@ -1148,7 +1146,7 @@ screen ccframe(callingscreen=None, variable=None, newvalue=None, isvalid=True):
             text_align (0.5, 0.5)
             padding (layoutseparator, layoutseparator)
             selected False
-            if isvalid == False:
+            if not isvalid:
                 sensitive False
             action (SetVariable(variable, newvalue), Hide(callingscreen))
         textbutton _("Cancel"):
