@@ -101,14 +101,12 @@ init python:
     slotbackground = renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Alternative: Solid("#FFF1")
     # Set the foreground for Slots, indicating when they have focus. It can be any Displayable, or None. If ColorizeMatrix is available, we can tint it to match the Dev's UI color scheme
     # Test for the existence of 'ColorizeMatrix', without running it:
-    try:
-        ColorizeMatrix
-    except NameError:
-        # ColorizeMatrix is not available. Use another form of focus highlighting e.g. Solid("#FFFFFF1F"), im. functions, etc.
-        slotforeground = renpy.displayable(Frame(im.MatrixColor(pathoffset + "gui/slotforeground.png", im.matrix.colorize(Color("#000"), Color(textcolor)))))
-    else:
+    if hasattr(store, ColorizeMatrix:
         # ColorizeMatrix is available. Use it to tint the image to match textcolor
         slotforeground = renpy.displayable(Frame(Transform(pathoffset + "gui/slotforeground.png", matrixcolor = ColorizeMatrix(Color("#000"), Color(textcolor)))))
+    else:
+        # ColorizeMatrix is not available. Use another form of focus highlighting e.g. Solid("#FFFFFF1F"), im. functions, etc.
+        slotforeground = renpy.displayable(Frame(im.MatrixColor(pathoffset + "gui/slotforeground.png", im.matrix.colorize(Color("#000"), Color(textcolor)))))
     # Locate a font file containing the glyphs we will use instead of image-based icons, below. This permits styling of the icons
         # - NOTE: To view glyphs: 1) Install the font (probably right-click the .ttf file -> Install), then 2) Visit (https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2)
     glyphfont = pathoffset + "gui/NotoSansSymbols2-Regular.ttf"
