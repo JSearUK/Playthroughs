@@ -25,7 +25,7 @@ init python:
 
 # [ INITIALISATION - CORE - BEST TO LEAVE ALONE ]
 default persistent.playthroughslist = []
-default persistent.save_system = "original"
+default persistent.playthrough_save_system = False
 default persistent.sortby = "lastmodified"
 default persistent.queryname = False
 default persistent.partialreplace = True
@@ -434,26 +434,22 @@ init -1 python:
 # The original save screen, modified and overridden
 screen save():
     tag menu
-    if persistent.save_system == "original":
+    if persistent.playthrough_save_system:
+        use playthrough_file_slots(_("Save"))
+    else:
         use file_slots(_("Save"))
         if ptbuttonpos:
             use playthrough_switch_button(ptbuttonpos[0], ptbuttonpos[1])
-    elif persistent.save_system == "playthrough":
-        use playthrough_file_slots(_("Save"))
-    else:
-        $ raise Exception(_("Error: Invalid persistent.save_system - \"{}\"").format(persistent.save_system))
 
 # The original load screen, modified and overridden
 screen load():
     tag menu
-    if persistent.save_system == "original":
+    if persistent.playthrough_save_system:
+        use playthrough_file_slots(_("Load"))
+    else:
         use file_slots(_("Load"))
         if ptbuttonpos:
             use playthrough_switch_button(ptbuttonpos[0], ptbuttonpos[1])
-    elif persistent.save_system == "playthrough":
-        use playthrough_file_slots(_("Load"))
-    else:
-        $ raise Exception(_("Error: Invalid persistent.save_system - \"{}\"").format(persistent.save_system))
 
 # Provide a button to switch to the Playthroughs system
 screen playthrough_switch_button(xpos=0.0, ypos=0.0):
@@ -464,7 +460,7 @@ screen playthrough_switch_button(xpos=0.0, ypos=0.0):
         pos (xpos, ypos)
         text "{icon=ViewPlaythroughs}":
             line_leading iconoffset
-        action SetVariable("persistent.save_system", "playthrough")
+        action SetField(persistent, "playthrough_save_system", True)
 
 # The new playthrough system
 screen playthrough_file_slots(title):
@@ -576,8 +572,7 @@ screen playthrough_display_top_buttons(title=None):
                 xysize (yvalue, yvalue)
                 text "{icon=ViewRenpyPages}":
                     line_leading iconoffset
-                action [SetVariable("persistent.save_system", "original")
-                        ]
+                action SetField(persistent, "playthrough_save_system", False)
             if config.has_autosave:
                 button:
                     tooltip _("Show Autosaves")
