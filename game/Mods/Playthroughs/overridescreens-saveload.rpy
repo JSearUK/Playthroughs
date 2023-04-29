@@ -24,6 +24,7 @@ init python:
 
 
 # [ INITIALISATION - CORE - BEST TO LEAVE ALONE ]
+default seasons_active = False
 default persistent.playthroughslist = []
 default persistent.playthrough_save_system = False
 default persistent.sortby = "lastmodified"
@@ -46,9 +47,9 @@ init 1:
 
 # [ INITIALISATION - BEHAVIOUR TOGGLES ]
 # NOTE: The 'enable_' defines below will still perform their default behaviour if set to 'False' - but the player will either not see their effect, or not be able to alter it
-define enable_versioning = True
+define enable_versioning = False
     # This simply warns the player if a *Playthrough* save is from an older version of the game, by graying out the thumbnail and writing details over the top of it
-    # If the save is from a newer version of the game, it will show: a disabled placeholder if True, or nothing at all if False. This is to prevent failed loads or loss of data
+    # If the save is from a newer version of the game, it will show: a disabled placeholder if True, or ***A NORMAL SLOT*** if False. This is to prevent failed loads or loss of data
 define enable_renaming = True
     # This enables the player to provide/edit a friendly name for any existing Playthrough save, and rename the Playthroughs themselves
 define enable_locking = True
@@ -101,7 +102,7 @@ init python:
     slotbackground = renpy.displayable(Frame(pathoffset + "gui/slotbackground.png")) # Alternative: Solid("#FFF1")
     # Set the foreground for Slots, indicating when they have focus. It can be any Displayable, or None. If ColorizeMatrix is available, we can tint it to match the Dev's UI color scheme
     # Test for the existence of 'ColorizeMatrix', without running it:
-    if hasattr(store, ColorizeMatrix:
+    if hasattr(store, "ColorizeMatrix"):
         # ColorizeMatrix is available. Use it to tint the image to match textcolor
         slotforeground = renpy.displayable(Frame(Transform(pathoffset + "gui/slotforeground.png", matrixcolor = ColorizeMatrix(Color("#000"), Color(textcolor)))))
     else:
@@ -115,24 +116,24 @@ init python:
     glyphsok = renpy.version_tuple >= (7, 4, 3, 1414)
     # Fonts do not always have standard positioning. `glyphoffset` can be used to adjust the line-leading property, should the gyphs not appear vertically centered in buttons
         # - NOTE: This is expressed as fraction of the button height (`yvalue`), to support UI scaling. Negative values will move the glyph upwards, positive will move it downwards
-    glyphoffset = 0.15 if glyphsok else 0.0
+    glyphoffset = 0.15 if glyphsok else 0.00
     # Set the glyphs we will use for each icon. These are referenced as a custom text tag e.g. "To create a new Playthrough, click {icon=NewPlaythrough}."
         # - NOTE: If you want the icon to be able to respond to focus/sensitivity changes, use `None` for the "color" field
     config.self_closing_custom_text_tags["icon"] = icon_tag
     icons = [
-             {"name": "Delete",             "color": "#FF0000",         "fallback": " X ",          "symbol": "🞫"}, # 🞫
-             {"name": "Rename",             "color": "#9933FF",         "fallback": "_/ ",          "symbol": "🪶"}, # 🪶
+             {"name": "Delete",             "color": "#FF0000",         "fallback": "X",            "symbol": "🞫"}, # 🞫
+             {"name": "Rename",             "color": "#9933FF",         "fallback": "_/",           "symbol": "🪶"}, # 🪶
              {"name": "Locked",             "color": "#FF0000",         "fallback": "o¬",           "symbol": "🔒"}, # 🔒
              {"name": "Unlocked",           "color": "#FFFF00",         "fallback": "( )",          "symbol": "🔓"}, # 🔓
-             {"name": "SortByRecent",       "color": None,              "fallback": " /\ ",         "symbol": "⭫"}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
-             {"name": "SortByNumber",       "color": None,              "fallback": " # ",          "symbol": "#"}, # Alternates: 𝍸 #
+             {"name": "SortByRecent",       "color": None,              "fallback": "^",            "symbol": "⭫"}, # Alternates: ⏱ 🗓 🕰 ⌚ ⭫
+             {"name": "SortByNumber",       "color": None,              "fallback": "#",            "symbol": "#"}, # Alternates: 𝍸 #
              {"name": "SortByLocked",       "color": None,              "fallback": "o¬",           "symbol": "🔒"}, # Alternates: 🔒
-             {"name": "SortByVersion",      "color": None,              "fallback": " ! ",          "symbol": "⚠"}, # Alternates: ⭭ 🗓 ⚠
-             {"name": "NewPlaythrough",     "color": "#00FF00",         "fallback": " + ",          "symbol": "🞤"}, # 🞤
+             {"name": "SortByVersion",      "color": None,              "fallback": "!",            "symbol": "⚠"}, # Alternates: ⭭ 🗓 ⚠
+             {"name": "NewPlaythrough",     "color": "#00FF00",         "fallback": "+",            "symbol": "🞤"}, # 🞤
              {"name": "ViewRenpyPages",     "color": focuscolor,        "fallback": ":::",          "symbol": "𝌅"}, # 𝌅
              {"name": "ViewPlaythroughs",   "color": focuscolor,        "fallback": "=|=",          "symbol": "𝌮"}, # 𝌮
              {"name": "Help",               "color": interfacecolor,    "fallback": " ? ",          "symbol": "❓"}, # Alternates: ❓ 🕮 🛈
-             {"name": "Settings",           "color": interfacecolor,    "fallback": " * ",          "symbol": "🞹"}, # Alternates: 🞹
+             {"name": "Settings",           "color": interfacecolor,    "fallback": "*",            "symbol": "🞹"}, # Alternates: 🞹
              {"name": "ToggleOff",          "color": None,              "fallback": "[  ]",         "symbol": "☐"}, # Alternates: 🗷 ☒ ☐
              {"name": "ToggleOn",           "color": "#00FF00",         "fallback": "[x]",          "symbol": "☑"}, # Alternates: 🗹 ☑
              {"name": "Blank",              "color": None,              "fallback": "   ",          "symbol": " "}, # Alternates:  
@@ -228,13 +229,15 @@ init python:
             #   - Editable name     : What the player sees. It defaults to Playthrough Name + Slot Number
             #   - Locked status     : A string. Code currently assigns meaning to "LOCKED" or "", nothing else
             #   - Version number    : The version number of the game when the file was last properly saved (as opposed to renamed). WARNING: Must go last, in case Dev uses "-" in it
+            #   - Season Number     : The Season in which the save was made. If Seasons was not present, this will be None.
+            #   - Season Position   : The gameplay position in which the save was made. If Seasons was not present, this will be None. Otherwise, this should be "Gameplay" or "Ending"
             # - With this in place, our code references the list (with the exception of the thumbnail). - WARNING: Every change to filename subdata must be reflected to the disk file immediately
             for file in files:
                 subdata = file.split("-")
                 if (self.name == "auto" or self.name == "quick"):
-                    slots.append([file, renpy.slot_mtime(file), int(subdata[1]), FileSaveName(file, empty="", slot=True), "", ""])
+                    slots.append([file, renpy.slot_mtime(file), int(subdata[1]), FileSaveName(file, empty="", slot=True), "", ""] + [FileJson(file, "Season", slot=True), FileJson(file, "Season_Position", slot=True)])
                 else:
-                    slots.append([file, renpy.slot_mtime(file)] + [int(subdata[1])] + subdata[2:4] + ["-".join(subdata[4:])])
+                    slots.append([file, renpy.slot_mtime(file)] + [int(subdata[1])] + subdata[2:4] + ["-".join(subdata[4:])] + [FileJson(file, "Season", slot=True), FileJson(file, "Season_Position", slot=True)])
             # Pass the data back to the calling expression
             return slots
 
@@ -261,25 +264,25 @@ init python:
                     lower, upper = self.slots[slot][i], self.slots[slot - 1][i]
                     if upper-lower == 2:
                         # There is a single-slot gap here
-                        self.slots.insert(slot, ["+ New Save +", "", lower + 1, "", "", ""])
+                        self.slots.insert(slot, ["+ New Save +", "", lower + 1, "", "", "", None, None])
                     elif upper-lower > 2:
                         # There is a multi-slot gap here; store the range (as integers) in the 'lastmodified' and 'versionnumber' fields
-                        self.slots.insert(slot, ["+ New Save +", lower + 1, "", "", "", upper - 1 ])
+                        self.slots.insert(slot, ["+ New Save +", lower + 1, "", "", "", upper - 1, None, None])
                 # If the lowest slot number was not 1, the slots between it and 0 got skipped by the loop and must be handled now
                 lower, upper = 0, self.slots[len(self.slots)-1][i]
                 if upper-lower == 2:
                     # There is a single-slot gap here
-                    self.slots.append(["+ New Save +", "", lower + 1, "", "", ""])
+                    self.slots.append(["+ New Save +", "", lower + 1, "", "", "", None, None])
                 elif upper-lower > 2:
                     # There is a multi-slot gap here; store the range (as integers) in the 'lastmodified' and 'versionnumber' fields
-                    self.slots.append(["+ New Save +", lower + 1, "", "", "", upper - 1 ])
+                    self.slots.append(["+ New Save +", lower + 1, "", "", "", upper - 1, None, None])
             # Finally, insert a "+ New Save +" slot at the beginning of the list - unless we're in "auto"/"quick"
             if self.name != "auto" and self.name != "quick":
                 # Find the highest slotnumber there currently is, and add 1. Insert this "+ New Save +" slot at the beginning of the list
                 slotnumbers = [slot[i] for slot in self.slots if slot[0] != "+ New Save +"]
                 # Dodge 'max()' crashing over an empty list...
                 slotnumber = max(slotnumbers) if slotnumbers != [] else 0
-                self.slots.insert(0, ["+ New Save +", "", slotnumber + 1, "", "", ""])
+                self.slots.insert(0, ["+ New Save +", "", slotnumber + 1, "", "", "", None, None])
 
 
 # [ FUNCTIONS ]
@@ -464,7 +467,9 @@ screen playthrough_switch_button(xpos=0.0, ypos=0.0):
 screen playthrough_file_slots(title):
     python:
         # Make sure we're accessing the global variables
-        global viewingptname, viewingpt, targetaction, userinput
+        global viewingptname, viewingpt, targetaction, userinput, seasons_active
+        # Determine whether Seasons is present
+        seasons_active = hasattr(store, "this_season")
         # Check whether we have a user input waiting to be processed
         if userinput:
             ProcessUserInput()
@@ -493,7 +498,15 @@ screen playthrough_file_slots(title):
                 # Display only what is inside the container, by cropping off anything outside it
                 at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
                 # Collect and display any active tooltip on this page
-                $ help = GetTooltip() or "" if persistent.playthroughslist else _("To start a new Playthrough, click {icon=NewPlaythrough}") + ("" if title == _("Save") else _(" on the Save screen"))
+                $ help = (_("Select an Ending from Season {}".format(season-1))
+                          if seasons_active and season_transfer
+                          else (GetTooltip()
+                                or (""
+                                    if persistent.playthroughslist
+                                    else _("To start a new Playthrough, click {icon=NewPlaythrough}") + ("" if title == _("Save") else _(" on the Save screen"))
+                                   )
+                               )
+                         )
                 if help:
                     text help:
                         at marquee(len(help))
@@ -598,7 +611,7 @@ screen playthrough_display_top_buttons(title=None):
                     text "{icon=NewPlaythrough}":
                         line_leading iconoffset
                     action [SetVariable("targetaction", "newplaythroughname"),
-                            Show("querystring", query=_("Please give this Playthrough a unique name"), excludes="[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
+                            Show("querystring", query=_("Please give this Playthrough a unique name"), excludes="()[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
                             ]
 
 screen playthrough_toolstrip():
@@ -661,7 +674,7 @@ screen display_playthrough_button(i=None):
                         text "{icon=Rename}":
                             line_leading iconoffset
                         action [SetVariable("targetaction", "changeplaythroughname"),
-                                Show("querystring", query=_("Please give this Playthrough a unique name"), preload=viewingptname, excludes="[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
+                                Show("querystring", query=_("Please give this Playthrough a unique name"), preload=viewingptname, excludes="()[{<>:\"/\|?*-", invalid=set(persistent.playthroughslist) | set(["auto", "quick"]), maxcharlen=maxinputchars, variable="userinput", styleprefix="fileslots", tcolor=focuscolor)
                                 ]
             # Playthrough selection button in the center, sized last, which permits internal sizing to work correctly
             button:
@@ -705,7 +718,7 @@ screen playthrough_display_slot_button(slot=None, title=None):
     if slot != None and title in [_("Load"), _("Save")]:
         python:
             # Unpack the details from the given slot
-            filename, lastmodified, slotnumber, editablename, lockedstatus, versionnumber = slot
+            filename, lastmodified, slotnumber, editablename, lockedstatus, versionnumber, slot_season, slot_position = slot
             # Produce a name for the slot...
             if enable_renaming and editablename:
                 slotname = editablename
@@ -714,8 +727,35 @@ screen playthrough_display_slot_button(slot=None, title=None):
                 slotname = "{} {}".format(viewingptname, slotnumber if slotnumber else _("[[{} to {}]").format(lastmodified, versionnumber))
             # Reset this each time, since the last time through might have made it 'insensitivecolor', and it appears to be preserved between 'use's
             slottextcolor = textcolor
+            show_slot = True
+            # Adjust slot visibility if Seasons is present
+            if seasons_active:
+                # Disable all slots unless it's a New Save slot and we're on the Save screen - and even then, disable that if we're mid-Season Transfer
+                show_slot = (not season_transfer and title == _("Save") and filename == "+ New Save +")
+                # Conditionally permit visibility
+                if season_transfer:
+                    if (title == _("Load")
+                        and slot_season == season-1
+                        and slot_position == "Ending"):
+                            # Permit visibility if we're loading an ending from the previous Season
+                            show_slot = True
+                elif slot_season == season:
+                    if (title == _("Load")
+                        or slot_position != "Ending"
+                        or (slot_position
+                            == season_position
+                            == "Ending")):
+                                # Permit visibility if we're loading from this Season, or we're saving over gameplay, or we're updating an ending
+                                show_slot = True
+                elif not slot_season:
+                    if this_season == 1:
+                        # Permit visibility for slots saved before Seasons was present, but only if we're in Season 1
+                        show_slot = True
+        # Skip any slot that is not supposed to be visible
+        if not show_slot:
+            pass
         # Handle any slot which has been inserted into the list for the purpose of creating a new save, and therefore is not yet a disk file:
-        if filename == "+ New Save +":
+        elif filename == "+ New Save +":
             # Only produce the button if we're on the Save screen
             # NOTE: "auto"/"quick" 'playthrough's will not have been given any "+ New Save +" slots, so they *shouldn't* ever reach this code...
             if title == _("Save"):
@@ -734,20 +774,19 @@ screen playthrough_display_slot_button(slot=None, title=None):
                              )
                             ]
         # Disable any slot that has a version number higher than this app; loading will likely fail and overwriting will likely lose data
-        elif versionnumber.lower() > config.version.lower():
+        elif enable_versioning and (versionnumber.lower() > config.version.lower()):
             # WARNING: The above line should probably not be changing case; it has been so long since it was written that I cannot remember why I did it that way...
-            if enable_versioning:
-                frame:
-                    xysize (1.0, slotheight)
-                    background slotbackground
-                    vbox:
-                        align (0.5, 0.5)
-                        spacing layoutseparator
-                        for i in [_("- Newer save -"), _("( v{} )").format(versionnumber), editablename]:
-                            text i:
-                                xalign 0.5
-                                color insensitivecolor
-                                layout "subtitle"
+            frame:
+                xysize (1.0, slotheight)
+                background slotbackground
+                vbox:
+                    align (0.5, 0.5)
+                    spacing layoutseparator
+                    for i in [_("- Newer save -"), _("( v{} )").format(versionnumber), editablename]:
+                        text i:
+                            xalign 0.5
+                            color insensitivecolor
+                            layout "subtitle"
         # Everything else should all be pre-existing disk files that need to be shown
         else:
             default hasfocus = False
@@ -815,6 +854,11 @@ screen playthrough_display_slot_button(slot=None, title=None):
                             background Frame(FileScreenshot(filename, slot=True))
                                 # NOTE: It may or may not be beneficial to preload this, rather than reload it each time. Then again, maybe Ren'Py prediction is already taking care of this?
                                 #       - [EDIT:] The vpgrid solves this by rendering only onscreen items. Preloading them all may induce unacceptable lag upon initial display, even if then cached
+                            # Display Season number and position top-left, if present
+                            if slot_season:
+                                text "S{}{}".format(slot_season, (" " + slot_position) if slot_position == "Ending" else ""):
+                                    style "fileslots_focus"
+                                    size gui.slot_button_text_size
                             # Darken the thumbnail if versioning is enabled, the version number is known, and it doesn't match the current version (i.e is older; newer is handled above)
                             if enable_versioning and versionnumber != "" and versionnumber != config.version:
                                 at Transform(crop=(0, 0, 1.0, 1.0), crop_relative=True)
