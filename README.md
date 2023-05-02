@@ -9,10 +9,12 @@
 The aim is to create the system such that it can be safely dropped into any other project or distribution.
 
 Current state: [Working] - not yet optimised for best practice, and may still contain bugs.
+                         - compatible with Seasons, another repository of mine.
+                         - suffering minimal maintenance.
 ```
 ---
 ```yaml
-License: This code will be free to use, but IS NOT YET PUBLICALLY RELEASED!
+License: This code is free to use, and is publically released as of 2 May, 2023
 ```
 ---
 ```php
